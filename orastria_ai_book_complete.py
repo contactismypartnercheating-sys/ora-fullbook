@@ -26,8 +26,15 @@ import textwrap
 # ============================================================
 
 REPLICATE_URL = "https://api.replicate.com/v1/models/anthropic/claude-4-sonnet/predictions"
-REPLICATE_API_KEY = os.environ.get('REPLICATE_API_KEY', '')  # Set in Railway environment variables
+REPLICATE_API_KEY = os.environ.get('REPLICATE_API_KEY', '')
+```
 
+---
+
+### 4. Add new file: `runtime.txt`
+Create this new file with just:
+```
+python-3.11
 # Find and register DejaVu fonts
 def find_font(font_name):
     """Find font file path across different systems"""
