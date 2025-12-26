@@ -32,13 +32,13 @@ REPLICATE_API_KEY = os.environ.get('REPLICATE_API_KEY', '')
 # ============================================================
 
 FONT_URLS = {
-    'Raleway-Regular.ttf': 'https://github.com/google/fonts/raw/main/ofl/raleway/static/Raleway-Regular.ttf',
-    'Raleway-Bold.ttf': 'https://github.com/google/fonts/raw/main/ofl/raleway/static/Raleway-Bold.ttf',
-    'Raleway-Italic.ttf': 'https://github.com/google/fonts/raw/main/ofl/raleway/static/Raleway-Italic.ttf',
-    'EBGaramond-Regular.ttf': 'https://github.com/google/fonts/raw/main/ofl/ebgaramond/static/EBGaramond-Regular.ttf',
-    'EBGaramond-Bold.ttf': 'https://github.com/google/fonts/raw/main/ofl/ebgaramond/static/EBGaramond-Bold.ttf',
-    'DejaVuSans.ttf': 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
-    'DejaVuSans-Bold.ttf': 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf',
+    'Raleway-Regular.ttf': 'https://cdn.jsdelivr.net/fontsource/fonts/raleway@latest/latin-400-normal.ttf',
+    'Raleway-Bold.ttf': 'https://cdn.jsdelivr.net/fontsource/fonts/raleway@latest/latin-700-normal.ttf',
+    'Raleway-Italic.ttf': 'https://cdn.jsdelivr.net/fontsource/fonts/raleway@latest/latin-400-italic.ttf',
+    'EBGaramond-Regular.ttf': 'https://cdn.jsdelivr.net/fontsource/fonts/eb-garamond@latest/latin-400-normal.ttf',
+    'EBGaramond-Bold.ttf': 'https://cdn.jsdelivr.net/fontsource/fonts/eb-garamond@latest/latin-700-normal.ttf',
+    'DejaVuSans.ttf': 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf',
+    'DejaVuSans-Bold.ttf': 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans-Bold.ttf',
 }
 
 def ensure_fonts():
