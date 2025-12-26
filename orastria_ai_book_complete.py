@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Orastria AI-Powered Complete Book Generator
-Combines AI content generation with PDF creation
-Deploy to Railway with your existing setup
+Orastria AI-Powered Book Generator v5
+With improved visuals: Raleway/Garamond fonts, colored compatibility bars, zodiac symbols
 """
 
 import requests
@@ -10,12 +9,12 @@ import json
 import time
 import math
 import os
-import subprocess
+import urllib.request
 from datetime import datetime
 
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-from reportlab.lib.colors import HexColor, white, black
+from reportlab.lib.colors import HexColor, white, black, Color
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -26,52 +25,99 @@ import textwrap
 # ============================================================
 
 REPLICATE_URL = os.environ.get('REPLICATE_MODEL_URL', 'https://api.replicate.com/v1/models/anthropic/claude-3.5-sonnet/predictions')
-REPLICATE_API_KEY = os.environ.get('REPLICATE_API_KEY', '')  # Set in Railway environment variables
+REPLICATE_API_KEY = os.environ.get('REPLICATE_API_KEY', '')
 
-# Find and register DejaVu fonts
-def find_font(font_name):
-    """Find font file path across different systems"""
-    import glob
-    script_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in dir() else '.'
+# ============================================================
+# FONT MANAGEMENT
+# ============================================================
+
+FONT_URLS = {
+    'Raleway-Regular.ttf': 'https://github.com/google/fonts/raw/main/ofl/raleway/static/Raleway-Regular.ttf',
+    'Raleway-Bold.ttf': 'https://github.com/google/fonts/raw/main/ofl/raleway/static/Raleway-Bold.ttf',
+    'Raleway-Italic.ttf': 'https://github.com/google/fonts/raw/main/ofl/raleway/static/Raleway-Italic.ttf',
+    'EBGaramond-Regular.ttf': 'https://github.com/google/fonts/raw/main/ofl/ebgaramond/static/EBGaramond-Regular.ttf',
+    'EBGaramond-Bold.ttf': 'https://github.com/google/fonts/raw/main/ofl/ebgaramond/static/EBGaramond-Bold.ttf',
+    'DejaVuSans.ttf': 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
+    'DejaVuSans-Bold.ttf': 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf',
+}
+
+def ensure_fonts():
+    """Download and register fonts"""
+    # Determine font directory
+    if os.path.exists('/app'):
+        font_dir = '/app/fonts'
+    else:
+        font_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
     
-    possible_paths = [
-        os.path.join(script_dir, 'fonts', font_name),
-        f'/app/fonts/{font_name}',
-        f'/usr/share/fonts/truetype/dejavu/{font_name}',
-        f'/usr/share/fonts/dejavu/{font_name}',
-    ]
+    os.makedirs(font_dir, exist_ok=True)
     
-    for path in possible_paths:
-        if os.path.exists(path):
-            return path
+    # Download fonts if needed
+    for font_name, url in FONT_URLS.items():
+        font_path = os.path.join(font_dir, font_name)
+        if not os.path.exists(font_path):
+            try:
+                print(f"Downloading {font_name}...")
+                urllib.request.urlretrieve(url, font_path)
+            except Exception as e:
+                print(f"Failed to download {font_name}: {e}")
     
-    # Search nix store
-    try:
-        matches = glob.glob('/nix/store/*dejavu*/share/fonts/truetype/*.ttf', recursive=True)
-        for match in matches:
-            if font_name in match:
-                return match
-    except:
-        pass
+    # Register fonts
+    fonts_registered = {}
+    font_mappings = {
+        'Raleway': 'Raleway-Regular.ttf',
+        'Raleway-Bold': 'Raleway-Bold.ttf',
+        'Raleway-Italic': 'Raleway-Italic.ttf',
+        'EBGaramond': 'EBGaramond-Regular.ttf',
+        'EBGaramond-Bold': 'EBGaramond-Bold.ttf',
+        'DejaVuSans': 'DejaVuSans.ttf',
+        'DejaVuSans-Bold': 'DejaVuSans-Bold.ttf',
+    }
     
-    return None
+    for font_name, font_file in font_mappings.items():
+        font_path = os.path.join(font_dir, font_file)
+        if os.path.exists(font_path):
+            try:
+                pdfmetrics.registerFont(TTFont(font_name, font_path))
+                fonts_registered[font_name] = True
+            except Exception as e:
+                print(f"Failed to register {font_name}: {e}")
+    
+    return fonts_registered
 
-dejavu_regular = find_font('DejaVuSans.ttf')
-dejavu_bold = find_font('DejaVuSans-Bold.ttf')
+# Initialize fonts
+FONTS = ensure_fonts()
 
-if dejavu_regular:
-    pdfmetrics.registerFont(TTFont('DejaVuSans', dejavu_regular))
-if dejavu_bold:
-    pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', dejavu_bold))
+# Font assignments
+FONT_BODY = 'Raleway' if 'Raleway' in FONTS else 'Helvetica'
+FONT_BODY_BOLD = 'Raleway-Bold' if 'Raleway-Bold' in FONTS else 'Helvetica-Bold'
+FONT_BODY_ITALIC = 'Raleway-Italic' if 'Raleway-Italic' in FONTS else 'Helvetica-Oblique'
+FONT_HEADING = 'EBGaramond' if 'EBGaramond' in FONTS else 'Times-Roman'
+FONT_HEADING_BOLD = 'EBGaramond-Bold' if 'EBGaramond-Bold' in FONTS else 'Times-Bold'
+FONT_SYMBOL = 'DejaVuSans' if 'DejaVuSans' in FONTS else 'Helvetica'
+FONT_SYMBOL_BOLD = 'DejaVuSans-Bold' if 'DejaVuSans-Bold' in FONTS else 'Helvetica-Bold'
 
-FONT_REGULAR = 'DejaVuSans' if dejavu_regular else 'Helvetica'
-FONT_BOLD = 'DejaVuSans-Bold' if dejavu_bold else 'Helvetica-Bold'
+print(f"Using fonts: Body={FONT_BODY}, Heading={FONT_HEADING}, Symbol={FONT_SYMBOL}")
 
-# Brand Colors
+# ============================================================
+# COLORS
+# ============================================================
+
 NAVY = HexColor('#1a1f3c')
 GOLD = HexColor('#c9a961')
 CREAM = HexColor('#f8f5f0')
 SOFT_GOLD = HexColor('#d4b87a')
+LIGHT_NAVY = HexColor('#2d3561')
+
+# Compatibility bar colors
+GREEN = HexColor('#2ecc71')
+YELLOW = HexColor('#f1c40f')
+ORANGE = HexColor('#e67e22')
+RED = HexColor('#e74c3c')
+LIGHT_GRAY = HexColor('#ecf0f1')
+
+# ============================================================
+# ZODIAC DATA
+# ============================================================
 
 ZODIAC_SYMBOLS = {
     'Aries': '♈', 'Taurus': '♉', 'Gemini': '♊', 'Cancer': '♋',
@@ -97,13 +143,11 @@ ZODIAC_DATA = {
     "Pisces": {"element": "Water", "modality": "Mutable", "ruler": "Neptune"}
 }
 
-
 # ============================================================
-# NUMEROLOGY CALCULATIONS
+# NUMEROLOGY
 # ============================================================
 
 def calculate_life_path(birth_date):
-    """Calculate numerology life path number from birth date"""
     try:
         if "-" in birth_date:
             parts = birth_date.split("-")
@@ -121,25 +165,19 @@ def calculate_life_path(birth_date):
     except:
         return 7
 
-
 def calculate_expression_number(name):
-    """Calculate expression number from name"""
     letter_values = {
         'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8, 'i': 9,
         'j': 1, 'k': 2, 'l': 3, 'm': 4, 'n': 5, 'o': 6, 'p': 7, 'q': 8, 'r': 9,
         's': 1, 't': 2, 'u': 3, 'v': 4, 'w': 5, 'x': 6, 'y': 7, 'z': 8
     }
-    
     total = sum(letter_values.get(c.lower(), 0) for c in name if c.isalpha())
-    
     while total > 9 and total not in [11, 22, 33]:
         total = sum(int(d) for d in str(total))
-    
     return total
 
-
 # ============================================================
-# AI CONTENT GENERATION (Claude API via Replicate)
+# AI CONTENT GENERATION
 # ============================================================
 
 def call_claude_api(prompt, max_tokens=1500):
@@ -165,7 +203,7 @@ def call_claude_api(prompt, max_tokens=1500):
         if not prediction_url:
             return None
         
-        for _ in range(90):  # Max 90 seconds
+        for _ in range(90):
             time.sleep(1)
             result = requests.get(prediction_url, headers=headers, timeout=30)
             result_data = result.json()
@@ -177,7 +215,6 @@ def call_claude_api(prompt, max_tokens=1500):
                     return "".join(output)
                 return output
             elif status == "failed":
-                print(f"API failed: {result_data.get('error')}")
                 return None
         
         return None
@@ -188,7 +225,7 @@ def call_claude_api(prompt, max_tokens=1500):
 
 
 class AIContentGenerator:
-    """Generate personalized AI content for all book sections"""
+    """Generate personalized AI content"""
     
     def __init__(self, user_data, chart_data):
         self.user = user_data
@@ -198,241 +235,174 @@ class AIContentGenerator:
         self.sun_sign = chart_data.get("sun_sign", "Aries")
         self.moon_sign = chart_data.get("moon_sign", "Aries")
         self.rising_sign = chart_data.get("rising_sign", "Aries")
-        
         self.life_path = calculate_life_path(user_data.get("birth_date", "2000-01-01"))
         self.expression_number = calculate_expression_number(self.name)
-        
         self.content = {}
     
     def _build_context(self):
-        """Build full context for AI prompts"""
         return f"""
-User Profile:
-- Name: {self.name}
-- Birth Date: {self.user.get('birth_date')}
-- Birth Time: {self.user.get('birth_time')} {self.user.get('birth_time_period', '')}
-- Birth Place: {self.user.get('birth_place')}
+User: {self.name}
+Birth: {self.user.get('birth_date')} at {self.user.get('birth_time')} {self.user.get('birth_time_period', '')}
+Place: {self.user.get('birth_place')}
 
-Astrological Chart:
-- Sun Sign: {self.sun_sign} ({ZODIAC_DATA[self.sun_sign]['element']}, ruled by {ZODIAC_DATA[self.sun_sign]['ruler']})
-- Moon Sign: {self.moon_sign} ({ZODIAC_DATA[self.moon_sign]['element']})
-- Rising Sign: {self.rising_sign} ({ZODIAC_DATA[self.rising_sign]['element']})
-- Mercury: {self.chart.get('mercury', 'Unknown')}
+Chart:
+- Sun: {self.sun_sign} ({ZODIAC_DATA[self.sun_sign]['element']})
+- Moon: {self.moon_sign} ({ZODIAC_DATA[self.moon_sign]['element']})
+- Rising: {self.rising_sign} ({ZODIAC_DATA[self.rising_sign]['element']})
 - Venus: {self.chart.get('venus', 'Unknown')}
 - Mars: {self.chart.get('mars', 'Unknown')}
-- Jupiter: {self.chart.get('jupiter', 'Unknown')}
-- Saturn: {self.chart.get('saturn', 'Unknown')}
 - Midheaven: {self.chart.get('midheaven', 'Unknown')}
-- North Node: {self.chart.get('north_node', 'Unknown')}
 
-Quiz Responses:
-- Astrology Knowledge: {self.user.get('astrology_familiarity', 'Beginner')}
-- Main Goals: {', '.join(self.user.get('main_goals', ['Self-discovery']))}
+Quiz:
 - Outlook: {self.user.get('outlook', 'Optimist')}
-- Decision Worry: {self.user.get('decision_worry', 'Sometimes')}
-- Need to be Liked: {self.user.get('need_to_be_liked', 'Sometimes')}
-- Logic vs Emotions: {self.user.get('logic_vs_emotions', 'Both')}
-- Life Dreams: {self.user.get('life_dreams', 'Making an impact')}
-- Motivations: {self.user.get('motivations', 'Creating something unique')}
-- Relationship Status: {self.user.get('relationship_status', 'Unknown')}
-- Love Language: {self.user.get('love_language', 'Quality time')}
-- Overthink Relationships: {self.user.get('overthink_relationships', 'Sometimes')}
-- Career Question: {self.user.get('career_question', 'Finding fulfillment')}
+- Dreams: {self.user.get('life_dreams', '')}
+- Love Language: {self.user.get('love_language', '')}
+- Career Question: {self.user.get('career_question', '')}
 
-Numerology:
-- Life Path Number: {self.life_path}
-- Expression Number: {self.expression_number}
+Numerology: Life Path {self.life_path}, Expression {self.expression_number}
 """
     
-    def generate_section(self, section_name, specific_prompt, max_tokens=1500):
-        """Generate a specific section with fallback"""
+    def generate_section(self, section_name, prompt, max_tokens=1500):
         print(f"  Generating: {section_name}...")
-        
-        full_prompt = f"""You are writing a personalized astrology book. {specific_prompt}
-
-{self._build_context()}
-
-Write in second person ("you"). Be warm, insightful, and specific to THIS person's chart and answers. Avoid generic content."""
-
+        full_prompt = f"{prompt}\n\nContext:\n{self._build_context()}\n\nWrite in second person. Be warm and specific."
         result = call_claude_api(full_prompt, max_tokens)
-        
-        if result:
-            self.content[section_name] = result
-        else:
-            self.content[section_name] = self._get_fallback(section_name)
-        
+        self.content[section_name] = result or self._get_fallback(section_name)
         return self.content[section_name]
     
     def _get_fallback(self, section):
-        """Provide fallback content if API fails"""
         fallbacks = {
-            'introduction': f"Dear {self.first_name}, welcome to your personalized cosmic blueprint. Your unique combination of {self.sun_sign} Sun, {self.moon_sign} Moon, and {self.rising_sign} Rising creates a fascinating tapestry of energy that shapes every aspect of your life.",
-            'sun_sign': f"As a {self.sun_sign} Sun, you embody the {ZODIAC_DATA[self.sun_sign]['element']} element's essence. Ruled by {ZODIAC_DATA[self.sun_sign]['ruler']}, you possess natural gifts and a unique approach to life that sets you apart.",
-            'moon_sign': f"Your {self.moon_sign} Moon reveals your emotional nature and inner world. This {ZODIAC_DATA[self.moon_sign]['element']} Moon shapes how you process feelings and what you need to feel secure.",
-            'rising_sign': f"With {self.rising_sign} Rising, you present a {ZODIAC_DATA[self.rising_sign]['element']} energy to the world. This is the mask you wear and the first impression you make.",
-            'personality': f"Your personality is a unique blend of your {self.sun_sign} core identity, {self.moon_sign} emotional nature, and {self.rising_sign} outer expression.",
-            'love': f"In love, your Venus and Mars placements reveal your romantic style and desires. Your {self.user.get('love_language', 'unique')} love language shows how you give and receive affection.",
-            'career': f"Your professional path is illuminated by your Midheaven and supported by your natural talents. Your dreams of {self.user.get('life_dreams', 'making an impact')} align with your cosmic purpose.",
-            'forecast': f"2026 brings significant opportunities for growth and transformation for {self.sun_sign}. Key themes include expansion, relationships, and personal evolution.",
-            'numerology': f"Your Life Path Number {self.life_path} reveals your soul's journey. Combined with Expression Number {self.expression_number}, you have a unique numerological blueprint.",
-            'tarot': f"The tarot cards aligned with your chart offer guidance for your current journey. Your Sun, Moon, and Rising signs each connect to specific Major Arcana cards.",
-            'crystals': f"Certain crystals resonate with your unique chart. These stones can amplify your strengths and support your growth.",
-            'closing': f"Dear {self.first_name}, may the wisdom in these pages guide you toward your highest potential. The stars have blessed you with a unique cosmic blueprint—now it's time to live it fully."
+            'introduction': f"Dear {self.first_name}, welcome to your personalized cosmic blueprint...",
+            'sun_sign': f"As a {self.sun_sign} Sun, you embody {ZODIAC_DATA[self.sun_sign]['element']} energy...",
+            'moon_sign': f"Your {self.moon_sign} Moon shapes your emotional world...",
+            'rising_sign': f"With {self.rising_sign} Rising, you present yourself with {ZODIAC_DATA[self.rising_sign]['element']} energy...",
+            'personality': f"Your unique blend of {self.sun_sign}, {self.moon_sign}, and {self.rising_sign} creates a fascinating personality...",
+            'love': f"In matters of love, your Venus placement guides your heart...",
+            'career': f"Your professional path is illuminated by your natural talents...",
+            'forecast': f"2026 brings significant opportunities for growth...",
+            'numerology': f"Your Life Path {self.life_path} reveals your soul's journey...",
+            'tarot': f"The tarot offers guidance for your path ahead...",
+            'crystals': f"Certain crystals resonate with your unique energy...",
+            'closing': f"Dear {self.first_name}, may the stars guide your journey..."
         }
-        return fallbacks.get(section, f"Content for {section}...")
+        return fallbacks.get(section, "Content for this section...")
     
     def generate_all(self):
-        """Generate all book content - optimized for fewer API calls"""
         print(f"\n🌟 Generating AI content for {self.name}...")
         print("=" * 50)
         
-        # Main sections (12 API calls)
-        self.generate_section('introduction', 
-            "Write a warm, personalized introduction (3-4 paragraphs, ~350 words) welcoming them to their cosmic blueprint. Reference their birth moment as unique, their goals for seeking this book, and what they'll discover.")
+        sections = [
+            ('introduction', "Write a warm introduction (3-4 paragraphs, ~350 words) welcoming them to their cosmic blueprint."),
+            ('sun_sign', f"Write about their {self.sun_sign} Sun (4-5 paragraphs, ~450 words). Cover essence, strengths, shadows."),
+            ('moon_sign', f"Write about their {self.moon_sign} Moon (4 paragraphs, ~400 words). Cover emotions, needs, intuition."),
+            ('rising_sign', f"Write about their {self.rising_sign} Rising (3-4 paragraphs, ~350 words). Cover first impressions, persona."),
+            ('personality', "Write a personality analysis (4-5 paragraphs, ~450 words) integrating their chart and quiz answers."),
+            ('love', "Write about love and relationships (4-5 paragraphs, ~450 words). Cover Venus, Mars, love style."),
+            ('career', "Write about career and purpose (4 paragraphs, ~400 words). Cover strengths, ideal paths."),
+            ('forecast', "Write 2026 forecast (5 paragraphs, ~500 words). Cover themes, opportunities, key months."),
+            ('numerology', f"Write about Life Path {self.life_path} and Expression {self.expression_number} (3-4 paragraphs, ~350 words)."),
+            ('tarot', "Create a tarot reading (4 paragraphs, ~400 words) with birth cards and a 5-card spread."),
+            ('crystals', "Write about crystals and rituals (3-4 paragraphs, ~350 words). Recommend 5 crystals and moon rituals."),
+            ('closing', "Write a warm closing (3 paragraphs, ~300 words) with an inspiring blessing."),
+        ]
         
-        self.generate_section('sun_sign',
-            f"Write a deep analysis of their {self.sun_sign} Sun (4-5 paragraphs, ~450 words). Cover the essence of {self.sun_sign}, how it manifests based on their quiz answers, strengths, shadows, and how it interacts with their Moon and Rising.")
+        for section_name, prompt in sections:
+            self.generate_section(section_name, prompt)
         
-        self.generate_section('moon_sign',
-            f"Write about their {self.moon_sign} Moon (4 paragraphs, ~400 words). Cover emotional nature, security needs, intuitive gifts, and how this Moon colors their relationships and love language.")
-        
-        self.generate_section('rising_sign',
-            f"Write about their {self.rising_sign} Rising (3-4 paragraphs, ~350 words). Cover first impressions, public persona, and how to use this Rising energy to their advantage.")
-        
-        self.generate_section('personality',
-            f"Write a deep personality analysis (4-5 paragraphs, ~450 words) integrating their quiz answers about outlook, decision-making, need for approval, dreams, and motivations with their chart placements.")
-        
-        self.generate_section('love',
-            f"Write about love and relationships (4-5 paragraphs, ~450 words). Cover Venus in {self.chart.get('venus')}, Mars in {self.chart.get('mars')}, their love language, and relationship patterns.")
-        
-        self.generate_section('career',
-            f"Write about career and purpose (4 paragraphs, ~400 words). Address their Midheaven in {self.chart.get('midheaven')}, professional strengths, ideal paths, and their specific career question.")
-        
-        self.generate_section('forecast',
-            f"Write 2026 yearly forecast (5 paragraphs, ~500 words). Cover overall themes, opportunities, challenges, love forecast, and career highlights with specific month references.")
-        
-        self.generate_section('numerology',
-            f"Write numerology analysis (3-4 paragraphs, ~350 words). Explain Life Path {self.life_path} and Expression Number {self.expression_number} meanings and how they complement the chart.")
-        
-        self.generate_section('tarot',
-            f"Create a tarot reading (4 paragraphs, ~400 words). Include birth cards for their Sun/Moon/Rising and a 5-card spread relevant to their goals.")
-        
-        self.generate_section('crystals',
-            f"Write about crystals and rituals (3-4 paragraphs, ~350 words). Recommend 5 crystals for their specific placements and moon rituals for their Sun and Moon signs.")
-        
-        self.generate_section('closing',
-            f"Write a warm closing (3 paragraphs, ~300 words). Summarize their unique blueprint, empower them, and end with an inspiring blessing.")
-        
-        # Compatibility - BATCHED into 2 API calls instead of 12
+        # Batch compatibility
         print("  Generating: compatibility (batched)...")
         self.content['compatibility'] = {}
         
-        # Batch 1: First 6 signs
-        signs_batch1 = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo"]
-        prompt1 = f"""Write compatibility analysis for {self.sun_sign} with each of these signs. For EACH sign, write 2 paragraphs (~150 words) covering chemistry, strengths, challenges, and give a percentage.
+        for batch_start in [0, 6]:
+            signs_batch = ZODIAC_ORDER[batch_start:batch_start+6]
+            prompt = f"""Write compatibility for {self.sun_sign} with: {', '.join(signs_batch)}.
 
-Format your response EXACTLY like this:
-ARIES:
+For EACH sign, write 2 paragraphs (~150 words) and include PERCENTAGE: XX%
+
+Format:
+{signs_batch[0].upper()}:
 [content]
 PERCENTAGE: XX%
 
-TAURUS:
+{signs_batch[1].upper()}:
 [content]
 PERCENTAGE: XX%
 
-(continue for Gemini, Cancer, Leo, Virgo)"""
+(continue for all 6 signs)"""
+            
+            result = call_claude_api(f"{prompt}\n\n{self._build_context()}", max_tokens=2500)
+            if result:
+                self._parse_compat(result, signs_batch)
         
-        result1 = call_claude_api(f"{prompt1}\n\n{self._build_context()}", max_tokens=2500)
-        if result1:
-            self._parse_compatibility_batch(result1, signs_batch1)
-        
-        # Batch 2: Last 6 signs
-        signs_batch2 = ["Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
-        prompt2 = f"""Write compatibility analysis for {self.sun_sign} with each of these signs. For EACH sign, write 2 paragraphs (~150 words) covering chemistry, strengths, challenges, and give a percentage.
-
-Format your response EXACTLY like this:
-LIBRA:
-[content]
-PERCENTAGE: XX%
-
-SCORPIO:
-[content]
-PERCENTAGE: XX%
-
-(continue for Sagittarius, Capricorn, Aquarius, Pisces)"""
-        
-        result2 = call_claude_api(f"{prompt2}\n\n{self._build_context()}", max_tokens=2500)
-        if result2:
-            self._parse_compatibility_batch(result2, signs_batch2)
-        
-        # Fill in any missing signs with fallback
         for sign in ZODIAC_ORDER:
             if sign not in self.content['compatibility']:
-                self.content['compatibility'][sign] = f"{self.sun_sign} and {sign} create a unique dynamic worth exploring..."
+                self.content['compatibility'][sign] = {
+                    'text': f"{self.sun_sign} and {sign} create a unique dynamic...",
+                    'percentage': 70
+                }
         
-        # Monthly forecasts - BATCHED into 2 API calls instead of 12
+        # Batch monthly
         print("  Generating: monthly forecasts (batched)...")
         self.content['monthly'] = {}
         
-        # Batch 1: Jan-Jun
-        months_h1 = ["January", "February", "March", "April", "May", "June"]
-        prompt_h1 = f"""Write 2026 monthly forecasts for this person for January through June. For EACH month, write 2 paragraphs (~150 words) covering the month's energy, key dates, and advice.
-
-Format your response EXACTLY like this:
-JANUARY:
-[content]
-
-FEBRUARY:
-[content]
-
-(continue for March, April, May, June)"""
-        
-        result_h1 = call_claude_api(f"{prompt_h1}\n\n{self._build_context()}", max_tokens=2500)
-        if result_h1:
-            self._parse_monthly_batch(result_h1, months_h1)
-        
-        # Batch 2: Jul-Dec
-        months_h2 = ["July", "August", "September", "October", "November", "December"]
-        prompt_h2 = f"""Write 2026 monthly forecasts for this person for July through December. For EACH month, write 2 paragraphs (~150 words) covering the month's energy, key dates, and advice.
-
-Format your response EXACTLY like this:
-JULY:
-[content]
-
-AUGUST:
-[content]
-
-(continue for September, October, November, December)"""
-        
-        result_h2 = call_claude_api(f"{prompt_h2}\n\n{self._build_context()}", max_tokens=2500)
-        if result_h2:
-            self._parse_monthly_batch(result_h2, months_h2)
-        
-        # Fill in any missing months with fallback
         all_months = ["January", "February", "March", "April", "May", "June",
                       "July", "August", "September", "October", "November", "December"]
+        
+        for batch_start in [0, 6]:
+            months_batch = all_months[batch_start:batch_start+6]
+            prompt = f"""Write 2026 monthly forecasts for: {', '.join(months_batch)}.
+
+For EACH month, write 2 paragraphs (~150 words).
+
+Format:
+{months_batch[0].upper()}:
+[content]
+
+{months_batch[1].upper()}:
+[content]
+
+(continue for all 6 months)"""
+            
+            result = call_claude_api(f"{prompt}\n\n{self._build_context()}", max_tokens=2500)
+            if result:
+                self._parse_monthly(result, months_batch)
+        
         for month in all_months:
             if month not in self.content['monthly']:
-                self.content['monthly'][month] = f"{month} 2026 brings opportunities for growth and transformation..."
+                self.content['monthly'][month] = f"{month} 2026 brings transformation and growth..."
         
         print("=" * 50)
         print("✅ All AI content generated!")
         return self.content
     
-    def _parse_compatibility_batch(self, text, signs):
-        """Parse batched compatibility response"""
+    def _parse_compat(self, text, signs):
+        import re
         for sign in signs:
-            # Try to find the section for this sign
-            import re
-            pattern = rf'{sign.upper()}:\s*(.*?)(?=(?:ARIES|TAURUS|GEMINI|CANCER|LEO|VIRGO|LIBRA|SCORPIO|SAGITTARIUS|CAPRICORN|AQUARIUS|PISCES):|\Z)'
+            pattern = rf'{sign.upper()}:\s*(.*?)(?=PERCENTAGE:\s*(\d+))'
             match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
             if match:
-                self.content['compatibility'][sign] = match.group(1).strip()
+                content = match.group(1).strip()
+                percentage = int(match.group(2)) if match.group(2) else 70
+                self.content['compatibility'][sign] = {
+                    'text': content,
+                    'percentage': percentage
+                }
+            else:
+                # Try simpler pattern
+                simple_pattern = rf'{sign.upper()}:\s*(.*?)(?=(?:ARIES|TAURUS|GEMINI|CANCER|LEO|VIRGO|LIBRA|SCORPIO|SAGITTARIUS|CAPRICORN|AQUARIUS|PISCES):|\Z)'
+                simple_match = re.search(simple_pattern, text, re.DOTALL | re.IGNORECASE)
+                if simple_match:
+                    content = simple_match.group(1).strip()
+                    # Extract percentage from content
+                    pct_match = re.search(r'(\d+)%', content)
+                    percentage = int(pct_match.group(1)) if pct_match else 70
+                    self.content['compatibility'][sign] = {
+                        'text': content,
+                        'percentage': percentage
+                    }
     
-    def _parse_monthly_batch(self, text, months):
-        """Parse batched monthly forecast response"""
+    def _parse_monthly(self, text, months):
+        import re
         for month in months:
-            import re
             pattern = rf'{month.upper()}:\s*(.*?)(?=(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER):|\Z)'
             match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
             if match:
@@ -440,11 +410,11 @@ AUGUST:
 
 
 # ============================================================
-# PDF BOOK GENERATOR
+# PDF BOOK GENERATOR WITH VISUAL IMPROVEMENTS
 # ============================================================
 
-class OrastriaAIBook:
-    """Generate the complete PDF book with AI content"""
+class OrastriaVisualBook:
+    """Generate beautiful PDF book"""
     
     def __init__(self, user_data, chart_data, ai_content, output_path):
         self.user = user_data
@@ -453,7 +423,7 @@ class OrastriaAIBook:
         self.output_path = output_path
         
         self.width, self.height = letter
-        self.margin = 0.7 * inch
+        self.margin = 0.75 * inch
         self.page_num = 0
         self.c = canvas.Canvas(output_path, pagesize=letter)
         
@@ -467,57 +437,66 @@ class OrastriaAIBook:
         bd = user_data.get("birth_date", "2000-01-01")
         if "-" in bd:
             parts = bd.split("-")
-            self.birth_year, self.birth_month, self.birth_day = parts[0], parts[1], parts[2]
-            # Format nicely
             months = ["", "January", "February", "March", "April", "May", "June",
                       "July", "August", "September", "October", "November", "December"]
-            self.birth_date_formatted = f"{months[int(self.birth_month)]} {int(self.birth_day)}, {self.birth_year}"
+            self.birth_date_formatted = f"{months[int(parts[1])]} {int(parts[2])}, {parts[0]}"
         else:
             self.birth_date_formatted = bd
     
+    def get_compat_color(self, percentage):
+        """Get color based on compatibility percentage"""
+        if percentage >= 80:
+            return GREEN
+        elif percentage >= 65:
+            return YELLOW
+        elif percentage >= 50:
+            return ORANGE
+        else:
+            return RED
+    
     def draw_cover(self):
-        """Draw the cover page"""
+        """Draw beautiful cover"""
         c = self.c
         
         # Navy background
         c.setFillColor(NAVY)
         c.rect(0, 0, self.width, self.height, fill=1, stroke=0)
         
-        # Double border
+        # Double gold border
         c.setStrokeColor(GOLD)
         c.setLineWidth(2)
         c.rect(0.4*inch, 0.4*inch, self.width - 0.8*inch, self.height - 0.8*inch)
         c.setLineWidth(1)
         c.rect(0.5*inch, 0.5*inch, self.width - 1*inch, self.height - 1*inch)
         
-        # Top decorations
-        c.setFont(FONT_BOLD, 24)
+        # Sun and Moon in corners (using symbol font)
+        c.setFont(FONT_SYMBOL_BOLD, 24)
         c.setFillColor(GOLD)
         c.drawCentredString(0.8*inch, self.height - 0.8*inch, '☉')
         c.drawCentredString(self.width - 0.8*inch, self.height - 0.8*inch, '☽')
         
         # Title
-        c.setFont(FONT_BOLD, 32)
+        c.setFont(FONT_HEADING_BOLD, 36)
         c.drawCentredString(self.width/2, self.height - 1.8*inch, "YOUR COSMIC")
-        c.drawCentredString(self.width/2, self.height - 2.25*inch, "BLUEPRINT")
+        c.drawCentredString(self.width/2, self.height - 2.3*inch, "BLUEPRINT")
         
-        # Line
+        # Decorative line
         c.setLineWidth(1)
-        c.line(2.2*inch, self.height - 2.5*inch, self.width - 2.2*inch, self.height - 2.5*inch)
+        c.line(2*inch, self.height - 2.55*inch, self.width - 2*inch, self.height - 2.55*inch)
         
         # Name
         c.setFillColor(white)
-        c.setFont(FONT_BOLD, 26)
+        c.setFont(FONT_HEADING_BOLD, 28)
         c.drawCentredString(self.width/2, self.height - 3.2*inch, self.name)
         
         # Birth info
         c.setFillColor(SOFT_GOLD)
-        c.setFont(FONT_REGULAR, 12)
+        c.setFont(FONT_BODY, 12)
         birth_time = f"{self.user.get('birth_time', '')} {self.user.get('birth_time_period', '')}".strip()
         c.drawCentredString(self.width/2, self.height - 3.6*inch, f"{self.birth_date_formatted}  •  {birth_time}")
         c.drawCentredString(self.width/2, self.height - 3.85*inch, self.user.get('birth_place', ''))
         
-        # Zodiac circle
+        # Zodiac circle with symbol
         center_y = self.height / 2 - 0.3*inch
         c.setStrokeColor(GOLD)
         c.setLineWidth(2)
@@ -525,56 +504,57 @@ class OrastriaAIBook:
         c.setLineWidth(1)
         c.circle(self.width/2, center_y, 95)
         
-        # Zodiac symbol
+        # Zodiac symbol (using DejaVu for proper rendering)
         c.setFillColor(GOLD)
-        c.setFont(FONT_BOLD, 64)
-        c.drawCentredString(self.width/2, center_y - 20, ZODIAC_SYMBOLS.get(self.sun_sign, '★'))
+        c.setFont(FONT_SYMBOL_BOLD, 72)
+        c.drawCentredString(self.width/2, center_y - 15, ZODIAC_SYMBOLS.get(self.sun_sign, '★'))
         
         # Sign name
-        c.setFont(FONT_BOLD, 16)
-        c.drawCentredString(self.width/2, center_y - 55, self.sun_sign.upper())
+        c.setFont(FONT_HEADING_BOLD, 18)
+        c.drawCentredString(self.width/2, center_y - 60, self.sun_sign.upper())
         
-        # Big Three
-        c.setFont(FONT_REGULAR, 11)
+        # Big Three line
+        c.setFont(FONT_SYMBOL, 11)
         c.setFillColor(white)
         big_three = f"☉ Sun: {self.sun_sign}  •  ☽ Moon: {self.moon_sign}  •  ↑ Rising: {self.rising_sign}"
         c.drawCentredString(self.width/2, center_y - 115, big_three)
         
         # Branding
         c.setFillColor(GOLD)
-        c.setFont(FONT_BOLD, 20)
+        c.setFont(FONT_HEADING_BOLD, 22)
         c.drawCentredString(self.width/2, 1.3*inch, "ORASTRIA")
         
-        c.setFont(FONT_REGULAR, 10)
+        c.setFont(FONT_BODY, 10)
         c.drawCentredString(self.width/2, 1*inch, "Personalized Astrology  •  Written in the Stars")
         
         # Bottom moons
-        c.setFont(FONT_REGULAR, 18)
+        c.setFont(FONT_SYMBOL, 16)
         c.drawCentredString(0.8*inch, 0.8*inch, '☽')
         c.drawCentredString(self.width - 0.8*inch, 0.8*inch, '☽')
         
         c.showPage()
     
-    def new_page(self, header=True):
-        """Start new page with decorations"""
+    def new_page(self):
+        """Start new page with styling"""
         self.page_num += 1
         c = self.c
         
+        # Cream background
         c.setFillColor(CREAM)
         c.rect(0, 0, self.width, self.height, fill=True, stroke=False)
         
-        # Corner stars
+        # Corner decorations
         c.setFillColor(GOLD)
-        c.setFont(FONT_REGULAR, 10)
+        c.setFont(FONT_SYMBOL, 10)
         c.drawCentredString(50, self.height - 50, '✦')
         c.drawCentredString(self.width - 50, self.height - 50, '✦')
         c.drawCentredString(50, 50, '✦')
         c.drawCentredString(self.width - 50, 50, '✦')
         
-        if header:
-            c.setFillColor(NAVY)
-            c.setFont(FONT_REGULAR, 10)
-            c.drawCentredString(self.width/2, 35, f"— {self.page_num} —")
+        # Page number
+        c.setFillColor(NAVY)
+        c.setFont(FONT_BODY, 10)
+        c.drawCentredString(self.width/2, 30, f"— {self.page_num} —")
         
         return self.height - 80
     
@@ -583,49 +563,55 @@ class OrastriaAIBook:
         y = self.new_page()
         c = self.c
         
+        # Decorative stars
         c.setFillColor(GOLD)
-        c.setFont(FONT_BOLD, 14)
-        c.drawCentredString(self.width/2, self.height - 180, "✧ ✦ ✧")
+        c.setFont(FONT_SYMBOL, 14)
+        c.drawCentredString(self.width/2, self.height - 180, "✧  ✦  ✧")
         
+        # Title
         c.setFillColor(NAVY)
-        c.setFont(FONT_BOLD, 28)
+        c.setFont(FONT_HEADING_BOLD, 32)
         c.drawCentredString(self.width/2, self.height - 280, title)
         
         if subtitle:
-            c.setFont(FONT_REGULAR, 14)
             c.setFillColor(SOFT_GOLD)
-            c.drawCentredString(self.width/2, self.height - 315, subtitle)
+            c.setFont(FONT_BODY_ITALIC, 16)
+            c.drawCentredString(self.width/2, self.height - 320, subtitle)
         
+        # Bottom stars
         c.setFillColor(GOLD)
-        c.setFont(FONT_BOLD, 14)
-        c.drawCentredString(self.width/2, self.height - 360, "✧ ✦ ✧")
+        c.setFont(FONT_SYMBOL, 14)
+        c.drawCentredString(self.width/2, self.height - 380, "✧  ✦  ✧")
         
         c.showPage()
     
     def draw_section_title(self, text, y):
-        """Draw section title"""
-        self.c.setFillColor(NAVY)
-        self.c.setFont(FONT_BOLD, 16)
-        self.c.drawString(self.margin, y, text)
-        self.c.setStrokeColor(GOLD)
-        self.c.setLineWidth(1.5)
-        self.c.line(self.margin, y - 5, self.margin + 50, y - 5)
-        return y - 30
+        """Draw section title with underline"""
+        c = self.c
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 18)
+        c.drawString(self.margin, y, text)
+        
+        # Gold underline
+        c.setStrokeColor(GOLD)
+        c.setLineWidth(2)
+        c.line(self.margin, y - 5, self.margin + 60, y - 5)
+        
+        return y - 35
     
-    def draw_ai_content(self, text, y, width=None):
-        """Draw AI-generated text content with word wrapping"""
+    def draw_text(self, text, y, width=None):
+        """Draw wrapped text with proper font"""
         if not text:
             return y
         
         c = self.c
         c.setFillColor(NAVY)
-        c.setFont(FONT_REGULAR, 11)
+        c.setFont(FONT_BODY, 11)
         
         if width is None:
             width = self.width - 2 * self.margin
         
-        wrapper = textwrap.TextWrapper(width=int(width / 5.5))  # Approximate chars
-        
+        wrapper = textwrap.TextWrapper(width=int(width / 5.5))
         paragraphs = text.split('\n\n') if '\n\n' in text else text.split('\n')
         
         for para in paragraphs:
@@ -639,34 +625,96 @@ class OrastriaAIBook:
                     c.showPage()
                     y = self.new_page()
                     c.setFillColor(NAVY)
-                    c.setFont(FONT_REGULAR, 11)
+                    c.setFont(FONT_BODY, 11)
                 
                 c.drawString(self.margin, y, line)
-                y -= 15
+                y -= 16
             
-            y -= 8  # Paragraph spacing
+            y -= 8
         
         return y
     
-    def draw_compat_bar(self, sign, text, y):
-        """Draw compatibility entry"""
+    def draw_compat_entry(self, sign, data, y):
+        """Draw compatibility entry with colored bar"""
         c = self.c
-        if y < self.margin + 80:
+        
+        if y < self.margin + 120:
             c.showPage()
             y = self.new_page()
         
-        # Sign header
+        # Handle both dict and string formats
+        if isinstance(data, dict):
+            text = data.get('text', '')
+            percentage = data.get('percentage', 70)
+        else:
+            text = data
+            # Try to extract percentage from text
+            import re
+            match = re.search(r'(\d+)%', text)
+            percentage = int(match.group(1)) if match else 70
+        
+        # Sign header with symbol
         c.setFillColor(GOLD)
-        c.setFont(FONT_BOLD, 14)
+        c.setFont(FONT_SYMBOL_BOLD, 18)
         c.drawString(self.margin, y, ZODIAC_SYMBOLS.get(sign, '★'))
+        
         c.setFillColor(NAVY)
-        c.setFont(FONT_BOLD, 12)
-        c.drawString(self.margin + 25, y, sign)
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawString(self.margin + 30, y, sign)
+        
+        # Percentage and bar
+        bar_width = 120
+        bar_height = 12
+        bar_x = self.width - self.margin - bar_width - 50
+        bar_y = y - 2
+        
+        # Background bar
+        c.setFillColor(LIGHT_GRAY)
+        c.rect(bar_x, bar_y, bar_width, bar_height, fill=1, stroke=0)
+        
+        # Colored progress bar
+        fill_width = bar_width * (percentage / 100)
+        c.setFillColor(self.get_compat_color(percentage))
+        c.rect(bar_x, bar_y, fill_width, bar_height, fill=1, stroke=0)
+        
+        # Percentage text
+        c.setFillColor(NAVY)
+        c.setFont(FONT_BODY_BOLD, 11)
+        c.drawString(bar_x + bar_width + 10, y - 2, f"{percentage}%")
+        
+        y -= 25
+        
+        # Content text (abbreviated)
+        if text:
+            # Only show first 2-3 sentences
+            sentences = text.split('.')[:3]
+            short_text = '.'.join(sentences) + '.' if sentences else text[:200]
+            y = self.draw_text(short_text, y, width=self.width - 2.5*self.margin)
+        
+        return y - 15
+    
+    def draw_monthly_entry(self, month, text, y):
+        """Draw monthly forecast entry"""
+        c = self.c
+        
+        if y < self.margin + 100:
+            c.showPage()
+            y = self.new_page()
+        
+        # Month header
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL, 12)
+        c.drawString(self.margin, y, "✧")
+        
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawString(self.margin + 20, y, f"{month} 2026")
         
         y -= 20
         
         # Content
-        y = self.draw_ai_content(text, y)
+        if text:
+            y = self.draw_text(text, y)
         
         return y - 10
     
@@ -681,7 +729,7 @@ class OrastriaAIBook:
         self.draw_chapter("Introduction", "Your Cosmic Journey Begins")
         y = self.new_page()
         y = self.draw_section_title(f"Welcome, {self.first_name}", y)
-        y = self.draw_ai_content(self.content.get('introduction', ''), y)
+        y = self.draw_text(self.content.get('introduction', ''), y)
         self.c.showPage()
         
         # The Big Three
@@ -690,125 +738,121 @@ class OrastriaAIBook:
         # Sun Sign
         y = self.new_page()
         self.c.setFillColor(GOLD)
-        self.c.setFont(FONT_BOLD, 36)
-        self.c.drawCentredString(self.width/2, self.height - 100, ZODIAC_SYMBOLS.get(self.sun_sign, '★'))
+        self.c.setFont(FONT_SYMBOL_BOLD, 48)
+        self.c.drawCentredString(self.width/2, self.height - 120, ZODIAC_SYMBOLS.get(self.sun_sign, '★'))
         self.c.setFillColor(NAVY)
-        self.c.setFont(FONT_BOLD, 18)
-        self.c.drawCentredString(self.width/2, self.height - 140, f"Your Sun in {self.sun_sign}")
-        y = self.height - 180
-        y = self.draw_ai_content(self.content.get('sun_sign', ''), y)
+        self.c.setFont(FONT_HEADING_BOLD, 20)
+        self.c.drawCentredString(self.width/2, self.height - 160, f"Your Sun in {self.sun_sign}")
+        y = self.height - 200
+        y = self.draw_text(self.content.get('sun_sign', ''), y)
         self.c.showPage()
         
         # Moon Sign
         y = self.new_page()
         self.c.setFillColor(GOLD)
-        self.c.setFont(FONT_BOLD, 36)
-        self.c.drawCentredString(self.width/2, self.height - 100, '☽')
+        self.c.setFont(FONT_SYMBOL_BOLD, 48)
+        self.c.drawCentredString(self.width/2, self.height - 120, '☽')
         self.c.setFillColor(NAVY)
-        self.c.setFont(FONT_BOLD, 18)
-        self.c.drawCentredString(self.width/2, self.height - 140, f"Your Moon in {self.moon_sign}")
-        y = self.height - 180
-        y = self.draw_ai_content(self.content.get('moon_sign', ''), y)
+        self.c.setFont(FONT_HEADING_BOLD, 20)
+        self.c.drawCentredString(self.width/2, self.height - 160, f"Your Moon in {self.moon_sign}")
+        y = self.height - 200
+        y = self.draw_text(self.content.get('moon_sign', ''), y)
         self.c.showPage()
         
         # Rising Sign
         y = self.new_page()
         self.c.setFillColor(GOLD)
-        self.c.setFont(FONT_BOLD, 36)
-        self.c.drawCentredString(self.width/2, self.height - 100, '↑')
+        self.c.setFont(FONT_SYMBOL_BOLD, 48)
+        self.c.drawCentredString(self.width/2, self.height - 120, '↑')
         self.c.setFillColor(NAVY)
-        self.c.setFont(FONT_BOLD, 18)
-        self.c.drawCentredString(self.width/2, self.height - 140, f"Your {self.rising_sign} Rising")
-        y = self.height - 180
-        y = self.draw_ai_content(self.content.get('rising_sign', ''), y)
+        self.c.setFont(FONT_HEADING_BOLD, 20)
+        self.c.drawCentredString(self.width/2, self.height - 160, f"Your {self.rising_sign} Rising")
+        y = self.height - 200
+        y = self.draw_text(self.content.get('rising_sign', ''), y)
         self.c.showPage()
         
         # Personality
         self.draw_chapter("Your Inner World", "Deep Personality Analysis")
         y = self.new_page()
         y = self.draw_section_title("Understanding Your Psychology", y)
-        y = self.draw_ai_content(self.content.get('personality', ''), y)
+        y = self.draw_text(self.content.get('personality', ''), y)
         self.c.showPage()
         
         # Love
         self.draw_chapter("Love & Relationships", "Your Heart's Blueprint")
         y = self.new_page()
         y = self.draw_section_title("Your Romantic Nature", y)
-        y = self.draw_ai_content(self.content.get('love', ''), y)
+        y = self.draw_text(self.content.get('love', ''), y)
         self.c.showPage()
         
         # Compatibility
         self.draw_chapter("Compatibility Guide", "Your Match with All 12 Signs")
         y = self.new_page()
         for sign in ZODIAC_ORDER:
-            y = self.draw_compat_bar(sign, self.content.get('compatibility', {}).get(sign, ''), y)
+            data = self.content.get('compatibility', {}).get(sign, {'text': '', 'percentage': 70})
+            y = self.draw_compat_entry(sign, data, y)
         self.c.showPage()
         
         # Career
         self.draw_chapter("Career & Purpose", "Your Professional Destiny")
         y = self.new_page()
         y = self.draw_section_title("Your Career Blueprint", y)
-        y = self.draw_ai_content(self.content.get('career', ''), y)
+        y = self.draw_text(self.content.get('career', ''), y)
         self.c.showPage()
         
         # 2026 Forecast
         self.draw_chapter("Your Year Ahead", "2026 Forecast")
         y = self.new_page()
         y = self.draw_section_title("2026 Overview", y)
-        y = self.draw_ai_content(self.content.get('forecast', ''), y)
+        y = self.draw_text(self.content.get('forecast', ''), y)
         self.c.showPage()
         
         # Monthly Forecasts
-        months = ["January", "February", "March", "April", "May", "June",
-                  "July", "August", "September", "October", "November", "December"]
-        for month in months:
-            y = self.new_page()
-            self.c.setFillColor(GOLD)
-            self.c.setFont(FONT_BOLD, 12)
-            self.c.drawCentredString(self.width/2, self.height - 80, "✧ ✦ ✧")
-            self.c.setFillColor(NAVY)
-            self.c.setFont(FONT_BOLD, 22)
-            self.c.drawCentredString(self.width/2, self.height - 120, f"{month} 2026")
-            y = self.height - 160
-            y = self.draw_ai_content(self.content.get('monthly', {}).get(month, ''), y)
-            self.c.showPage()
+        self.draw_chapter("Monthly Forecasts", "Your 2026 Month-by-Month Guide")
+        y = self.new_page()
+        all_months = ["January", "February", "March", "April", "May", "June",
+                      "July", "August", "September", "October", "November", "December"]
+        for month in all_months:
+            text = self.content.get('monthly', {}).get(month, '')
+            y = self.draw_monthly_entry(month, text, y)
+        self.c.showPage()
         
         # Numerology
         self.draw_chapter("Numerology", "The Numbers of Your Life")
         y = self.new_page()
         life_path = calculate_life_path(self.user.get('birth_date', '2000-01-01'))
         y = self.draw_section_title(f"Life Path {life_path}", y)
-        y = self.draw_ai_content(self.content.get('numerology', ''), y)
+        y = self.draw_text(self.content.get('numerology', ''), y)
         self.c.showPage()
         
         # Tarot
         self.draw_chapter("Tarot Guidance", "Cards for Your Journey")
         y = self.new_page()
         y = self.draw_section_title("Your Tarot Reading", y)
-        y = self.draw_ai_content(self.content.get('tarot', ''), y)
+        y = self.draw_text(self.content.get('tarot', ''), y)
         self.c.showPage()
         
         # Crystals
         self.draw_chapter("Crystals & Rituals", "Tools for Your Path")
         y = self.new_page()
         y = self.draw_section_title("Your Power Crystals", y)
-        y = self.draw_ai_content(self.content.get('crystals', ''), y)
+        y = self.draw_text(self.content.get('crystals', ''), y)
         self.c.showPage()
         
         # Closing
         self.draw_chapter("Closing Thoughts", "Your Journey Continues")
         y = self.new_page()
         y = self.draw_section_title(f"Dear {self.first_name},", y)
-        y = self.draw_ai_content(self.content.get('closing', ''), y)
+        y = self.draw_text(self.content.get('closing', ''), y)
         
         # Final branding
         y -= 40
         self.c.setFillColor(NAVY)
-        self.c.setFont(FONT_BOLD, 14)
+        self.c.setFont(FONT_BODY_ITALIC, 14)
         self.c.drawString(self.margin, y, "With cosmic blessings,")
         self.c.setFillColor(GOLD)
-        self.c.setFont(FONT_BOLD, 24)
-        self.c.drawString(self.margin, y - 30, "ORASTRIA")
+        self.c.setFont(FONT_HEADING_BOLD, 26)
+        self.c.drawString(self.margin, y - 35, "ORASTRIA")
         
         self.c.save()
         print(f"✅ Book saved: {self.output_path}")
@@ -817,68 +861,34 @@ class OrastriaAIBook:
 
 
 # ============================================================
-# MAIN FUNCTION - Call this from your Flask API
+# MAIN FUNCTION
 # ============================================================
 
 def generate_ai_book(user_data, chart_data, output_path):
-    """
-    Main function to generate a complete AI-powered astrology book
-    
-    Args:
-        user_data: dict with user info and quiz answers
-        chart_data: dict with astrological placements
-        output_path: where to save the PDF
-    
-    Returns:
-        path to generated PDF
-    """
-    # Generate AI content
+    """Generate complete AI-powered astrology book"""
     ai_gen = AIContentGenerator(user_data, chart_data)
     content = ai_gen.generate_all()
-    
-    # Build PDF
-    book = OrastriaAIBook(user_data, chart_data, content, output_path)
+    book = OrastriaVisualBook(user_data, chart_data, content, output_path)
     return book.build()
 
 
-# ============================================================
-# TEST
-# ============================================================
-
 if __name__ == "__main__":
-    # Example user data
     user_data = {
         "name": "Taylor Swift",
         "birth_date": "1989-12-13",
         "birth_time": "05:17",
         "birth_time_period": "AM",
-        "birth_place": "West Reading, Pennsylvania, USA",
-        "astrology_familiarity": "Intermediate",
-        "main_goals": ["Discover my life path & purpose", "Improve my relationships"],
+        "birth_place": "Reading, Pennsylvania",
         "outlook": "Optimist",
-        "decision_worry": "Somewhat agree",
-        "need_to_be_liked": "Sometimes",
-        "logic_vs_emotions": "A bit of both",
-        "life_dreams": "Making significant impact in my field",
-        "motivations": "Creating something unique",
-        "relationship_status": "Single",
         "love_language": "Words of affirmation",
-        "overthink_relationships": "Often",
-        "career_question": "What work will bring me joy and fulfillment?",
     }
     
     chart_data = {
         "sun_sign": "Sagittarius",
         "moon_sign": "Cancer",
         "rising_sign": "Scorpio",
-        "mercury": "Capricorn",
         "venus": "Aquarius",
         "mars": "Scorpio",
-        "jupiter": "Cancer",
-        "saturn": "Capricorn",
-        "midheaven": "Leo",
-        "north_node": "Aquarius",
     }
     
-    output = generate_ai_book(user_data, chart_data, "/tmp/orastria_ai_test.pdf")
-    print(f"\n🎉 Generated: {output}")
+    generate_ai_book(user_data, chart_data, "/tmp/orastria_visual_test.pdf")
