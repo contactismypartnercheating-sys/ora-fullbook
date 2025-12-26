@@ -282,11 +282,11 @@ Write in second person ("you"). Be warm, insightful, and specific to THIS person
         return fallbacks.get(section, f"Content for {section}...")
     
     def generate_all(self):
-        """Generate all book content"""
+        """Generate all book content - optimized for fewer API calls"""
         print(f"\n🌟 Generating AI content for {self.name}...")
         print("=" * 50)
         
-        # Main sections
+        # Main sections (12 API calls)
         self.generate_section('introduction', 
             "Write a warm, personalized introduction (3-4 paragraphs, ~350 words) welcoming them to their cosmic blueprint. Reference their birth moment as unique, their goals for seeking this book, and what they'll discover.")
         
@@ -323,29 +323,120 @@ Write in second person ("you"). Be warm, insightful, and specific to THIS person
         self.generate_section('closing',
             f"Write a warm closing (3 paragraphs, ~300 words). Summarize their unique blueprint, empower them, and end with an inspiring blessing.")
         
-        # Compatibility for all 12 signs
-        print("  Generating: compatibility (12 signs)...")
+        # Compatibility - BATCHED into 2 API calls instead of 12
+        print("  Generating: compatibility (batched)...")
         self.content['compatibility'] = {}
-        for sign in ZODIAC_ORDER:
-            prompt = f"Write compatibility analysis for {self.sun_sign} with {sign} (2-3 paragraphs, ~180 words). Include chemistry, strengths, challenges, and a realistic percentage."
-            result = call_claude_api(f"{prompt}\n\n{self._build_context()}", max_tokens=400)
-            self.content['compatibility'][sign] = result or f"{self.sun_sign} and {sign} create an interesting dynamic..."
-            time.sleep(0.5)  # Rate limiting
         
-        # Monthly forecasts for 2026
-        print("  Generating: monthly forecasts (12 months)...")
+        # Batch 1: First 6 signs
+        signs_batch1 = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo"]
+        prompt1 = f"""Write compatibility analysis for {self.sun_sign} with each of these signs. For EACH sign, write 2 paragraphs (~150 words) covering chemistry, strengths, challenges, and give a percentage.
+
+Format your response EXACTLY like this:
+ARIES:
+[content]
+PERCENTAGE: XX%
+
+TAURUS:
+[content]
+PERCENTAGE: XX%
+
+(continue for Gemini, Cancer, Leo, Virgo)"""
+        
+        result1 = call_claude_api(f"{prompt1}\n\n{self._build_context()}", max_tokens=2500)
+        if result1:
+            self._parse_compatibility_batch(result1, signs_batch1)
+        
+        # Batch 2: Last 6 signs
+        signs_batch2 = ["Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+        prompt2 = f"""Write compatibility analysis for {self.sun_sign} with each of these signs. For EACH sign, write 2 paragraphs (~150 words) covering chemistry, strengths, challenges, and give a percentage.
+
+Format your response EXACTLY like this:
+LIBRA:
+[content]
+PERCENTAGE: XX%
+
+SCORPIO:
+[content]
+PERCENTAGE: XX%
+
+(continue for Sagittarius, Capricorn, Aquarius, Pisces)"""
+        
+        result2 = call_claude_api(f"{prompt2}\n\n{self._build_context()}", max_tokens=2500)
+        if result2:
+            self._parse_compatibility_batch(result2, signs_batch2)
+        
+        # Fill in any missing signs with fallback
+        for sign in ZODIAC_ORDER:
+            if sign not in self.content['compatibility']:
+                self.content['compatibility'][sign] = f"{self.sun_sign} and {sign} create a unique dynamic worth exploring..."
+        
+        # Monthly forecasts - BATCHED into 2 API calls instead of 12
+        print("  Generating: monthly forecasts (batched)...")
         self.content['monthly'] = {}
-        months = ["January", "February", "March", "April", "May", "June",
-                  "July", "August", "September", "October", "November", "December"]
-        for month in months:
-            prompt = f"Write {month} 2026 forecast for this person (2-3 paragraphs, ~180 words). Cover the month's energy, key dates, and advice for love/career/growth."
-            result = call_claude_api(f"{prompt}\n\n{self._build_context()}", max_tokens=400)
-            self.content['monthly'][month] = result or f"{month} brings significant energy shifts..."
-            time.sleep(0.5)
+        
+        # Batch 1: Jan-Jun
+        months_h1 = ["January", "February", "March", "April", "May", "June"]
+        prompt_h1 = f"""Write 2026 monthly forecasts for this person for January through June. For EACH month, write 2 paragraphs (~150 words) covering the month's energy, key dates, and advice.
+
+Format your response EXACTLY like this:
+JANUARY:
+[content]
+
+FEBRUARY:
+[content]
+
+(continue for March, April, May, June)"""
+        
+        result_h1 = call_claude_api(f"{prompt_h1}\n\n{self._build_context()}", max_tokens=2500)
+        if result_h1:
+            self._parse_monthly_batch(result_h1, months_h1)
+        
+        # Batch 2: Jul-Dec
+        months_h2 = ["July", "August", "September", "October", "November", "December"]
+        prompt_h2 = f"""Write 2026 monthly forecasts for this person for July through December. For EACH month, write 2 paragraphs (~150 words) covering the month's energy, key dates, and advice.
+
+Format your response EXACTLY like this:
+JULY:
+[content]
+
+AUGUST:
+[content]
+
+(continue for September, October, November, December)"""
+        
+        result_h2 = call_claude_api(f"{prompt_h2}\n\n{self._build_context()}", max_tokens=2500)
+        if result_h2:
+            self._parse_monthly_batch(result_h2, months_h2)
+        
+        # Fill in any missing months with fallback
+        all_months = ["January", "February", "March", "April", "May", "June",
+                      "July", "August", "September", "October", "November", "December"]
+        for month in all_months:
+            if month not in self.content['monthly']:
+                self.content['monthly'][month] = f"{month} 2026 brings opportunities for growth and transformation..."
         
         print("=" * 50)
         print("✅ All AI content generated!")
         return self.content
+    
+    def _parse_compatibility_batch(self, text, signs):
+        """Parse batched compatibility response"""
+        for sign in signs:
+            # Try to find the section for this sign
+            import re
+            pattern = rf'{sign.upper()}:\s*(.*?)(?=(?:ARIES|TAURUS|GEMINI|CANCER|LEO|VIRGO|LIBRA|SCORPIO|SAGITTARIUS|CAPRICORN|AQUARIUS|PISCES):|\Z)'
+            match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+            if match:
+                self.content['compatibility'][sign] = match.group(1).strip()
+    
+    def _parse_monthly_batch(self, text, months):
+        """Parse batched monthly forecast response"""
+        for month in months:
+            import re
+            pattern = rf'{month.upper()}:\s*(.*?)(?=(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER):|\Z)'
+            match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+            if match:
+                self.content['monthly'][month] = match.group(1).strip()
 
 
 # ============================================================
