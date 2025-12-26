@@ -1,8 +1,17 @@
 [phases.setup]
-nixPkgs = ["dejavu_fonts", "python311"]
+nixPkgs = ["dejavu_fonts", "python311", "python311Packages.pip"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+dependsOn = ["setup"]
+cmds = ["python3.11 -m pip install -r requirements.txt"]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300"
+cmd = "python3.11 -m gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300"
+```
+
+---
+
+### 2. `Procfile`
+Replace entire contents with:
+```
+web: python -m gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300
