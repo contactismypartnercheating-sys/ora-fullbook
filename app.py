@@ -17,10 +17,10 @@ from orastria_ai_book_complete import generate_ai_book
 app = Flask(__name__)
 
 # Backblaze B2 configuration (use your existing setup)
-B2_KEY_ID = os.environ.get('B2_KEY_ID', 'your_key_id')
-B2_APP_KEY = os.environ.get('B2_APP_KEY', 'your_app_key')
-B2_BUCKET = os.environ.get('B2_BUCKET', 'orastria-books')
-B2_ENDPOINT = os.environ.get('B2_ENDPOINT', 'https://s3.us-west-004.backblazeb2.com')
+B2_KEY_ID = os.environ.get('B2_KEY_ID', '')
+B2_APP_KEY = os.environ.get('B2_APP_KEY', '')
+B2_BUCKET = os.environ.get('B2_BUCKET_NAME', os.environ.get('B2_BUCKET', 'orastria'))
+B2_ENDPOINT = os.environ.get('B2_ENDPOINT', 'https://s3.us-east-005.backblazeb2.com')
 
 def upload_to_b2(file_path, file_name):
     """Upload PDF to Backblaze B2"""
