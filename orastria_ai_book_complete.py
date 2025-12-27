@@ -141,18 +141,18 @@ ZODIAC_ORDER = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
                 "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
 
 ZODIAC_DATA = {
-    "Aries": {"element": "Fire", "modality": "Cardinal", "ruler": "Mars"},
-    "Taurus": {"element": "Earth", "modality": "Fixed", "ruler": "Venus"},
-    "Gemini": {"element": "Air", "modality": "Mutable", "ruler": "Mercury"},
-    "Cancer": {"element": "Water", "modality": "Cardinal", "ruler": "Moon"},
-    "Leo": {"element": "Fire", "modality": "Fixed", "ruler": "Sun"},
-    "Virgo": {"element": "Earth", "modality": "Mutable", "ruler": "Mercury"},
-    "Libra": {"element": "Air", "modality": "Cardinal", "ruler": "Venus"},
-    "Scorpio": {"element": "Water", "modality": "Fixed", "ruler": "Pluto"},
-    "Sagittarius": {"element": "Fire", "modality": "Mutable", "ruler": "Jupiter"},
-    "Capricorn": {"element": "Earth", "modality": "Cardinal", "ruler": "Saturn"},
-    "Aquarius": {"element": "Air", "modality": "Fixed", "ruler": "Uranus"},
-    "Pisces": {"element": "Water", "modality": "Mutable", "ruler": "Neptune"}
+    "Aries": {"element": "Fire", "modality": "Cardinal", "ruler": "Mars", "crystal": "Carnelian"},
+    "Taurus": {"element": "Earth", "modality": "Fixed", "ruler": "Venus", "crystal": "Rose Quartz"},
+    "Gemini": {"element": "Air", "modality": "Mutable", "ruler": "Mercury", "crystal": "Citrine"},
+    "Cancer": {"element": "Water", "modality": "Cardinal", "ruler": "Moon", "crystal": "Moonstone"},
+    "Leo": {"element": "Fire", "modality": "Fixed", "ruler": "Sun", "crystal": "Tiger's Eye"},
+    "Virgo": {"element": "Earth", "modality": "Mutable", "ruler": "Mercury", "crystal": "Green Aventurine"},
+    "Libra": {"element": "Air", "modality": "Cardinal", "ruler": "Venus", "crystal": "Lapis Lazuli"},
+    "Scorpio": {"element": "Water", "modality": "Fixed", "ruler": "Pluto", "crystal": "Black Obsidian"},
+    "Sagittarius": {"element": "Fire", "modality": "Mutable", "ruler": "Jupiter", "crystal": "Turquoise"},
+    "Capricorn": {"element": "Earth", "modality": "Cardinal", "ruler": "Saturn", "crystal": "Garnet"},
+    "Aquarius": {"element": "Air", "modality": "Fixed", "ruler": "Uranus", "crystal": "Amethyst"},
+    "Pisces": {"element": "Water", "modality": "Mutable", "ruler": "Neptune", "crystal": "Aquamarine"}
 }
 
 # ============================================================
@@ -201,6 +201,24 @@ def get_prokerala_token():
     return response.json()['access_token']
 
 
+def get_timezone_from_coords(lat, lon, place_name):
+    """Get timezone from coordinates using timezonefinder library"""
+    try:
+        from timezonefinder import TimezoneFinder
+        tf = TimezoneFinder()
+        timezone = tf.timezone_at(lat=lat, lng=lon)
+        if timezone:
+            print(f"✅ Timezone found: {timezone}")
+            return timezone
+    except ImportError:
+        print("⚠️ timezonefinder not installed, using fallback")
+    except Exception as e:
+        print(f"⚠️ timezonefinder error: {e}")
+    
+    # Fallback to guess
+    return guess_timezone_from_coords(lat, lon, place_name)
+
+
 def geocode_location(place_name):
     """Get latitude, longitude, and timezone for a place using Nominatim"""
     # Using Nominatim (free, no API key needed)
@@ -222,16 +240,66 @@ def geocode_location(place_name):
     lat = float(results[0]['lat'])
     lon = float(results[0]['lon'])
     
-    # Get timezone using TimeAPI
-    tz_url = f"https://timeapi.io/api/TimeZone/coordinate?latitude={lat}&longitude={lon}"
-    tz_response = requests.get(tz_url, timeout=30)
-    
-    if tz_response.ok:
-        timezone = tz_response.json().get('timeZone', 'UTC')
-    else:
-        timezone = 'UTC'
+    # Get timezone reliably
+    timezone = get_timezone_from_coords(lat, lon, place_name)
+    print(f"📍 Location: {lat}, {lon} → {timezone}")
     
     return lat, lon, timezone
+
+
+def guess_timezone_from_coords(lat, lon, place_name):
+    """Guess timezone based on coordinates and place name"""
+    place_lower = place_name.lower()
+    
+    # Check place name for known locations
+    if 'paris' in place_lower or 'france' in place_lower:
+        return 'Europe/Paris'
+    if 'london' in place_lower or 'uk' in place_lower or 'england' in place_lower:
+        return 'Europe/London'
+    if 'new york' in place_lower:
+        return 'America/New_York'
+    if 'los angeles' in place_lower or 'california' in place_lower:
+        return 'America/Los_Angeles'
+    if 'chicago' in place_lower:
+        return 'America/Chicago'
+    if 'dubai' in place_lower or 'uae' in place_lower:
+        return 'Asia/Dubai'
+    if 'tokyo' in place_lower or 'japan' in place_lower:
+        return 'Asia/Tokyo'
+    if 'sydney' in place_lower or 'australia' in place_lower:
+        return 'Australia/Sydney'
+    if 'berlin' in place_lower or 'germany' in place_lower:
+        return 'Europe/Berlin'
+    if 'rome' in place_lower or 'italy' in place_lower:
+        return 'Europe/Rome'
+    if 'madrid' in place_lower or 'spain' in place_lower:
+        return 'Europe/Madrid'
+    if 'moscow' in place_lower or 'russia' in place_lower:
+        return 'Europe/Moscow'
+    if 'beijing' in place_lower or 'china' in place_lower:
+        return 'Asia/Shanghai'
+    if 'india' in place_lower or 'mumbai' in place_lower or 'delhi' in place_lower:
+        return 'Asia/Kolkata'
+    if 'beirut' in place_lower or 'lebanon' in place_lower:
+        return 'Asia/Beirut'
+    
+    # Rough guess based on longitude
+    if lon < -100:
+        return 'America/Los_Angeles'
+    elif lon < -60:
+        return 'America/New_York'
+    elif lon < 0:
+        return 'Europe/London'
+    elif lon < 30:
+        return 'Europe/Paris'
+    elif lon < 60:
+        return 'Asia/Dubai'
+    elif lon < 100:
+        return 'Asia/Kolkata'
+    elif lon < 130:
+        return 'Asia/Shanghai'
+    else:
+        return 'Asia/Tokyo'
 
 
 def get_tz_offset(timezone):
@@ -245,8 +313,12 @@ def get_tz_offset(timezone):
         'Europe/London': '+00:00',
         'Europe/Paris': '+01:00',
         'Europe/Berlin': '+01:00',
+        'Europe/Rome': '+01:00',
+        'Europe/Madrid': '+01:00',
+        'Europe/Moscow': '+03:00',
         'Asia/Dubai': '+04:00',
         'Asia/Kolkata': '+05:30',
+        'Asia/Shanghai': '+08:00',
         'Asia/Tokyo': '+09:00',
         'Australia/Sydney': '+11:00',
         'Pacific/Auckland': '+13:00',
@@ -542,6 +614,24 @@ Expression Number: {self.expression_number}
     
     def generate_section(self, section_name, prompt, max_tokens=1500):
         print(f"  Generating: {section_name}...")
+        
+        # Determine formatting based on familiarity level
+        familiarity = self.user.get('astrology_familiarity', 'Beginner')
+        is_beginner = familiarity.lower() in ['beginner', 'new', 'none', 'just starting']
+        
+        formatting_instructions = """
+FORMATTING REQUIREMENTS:
+- Use SHORT paragraphs (3-4 sentences max)
+- Break up long explanations with line breaks
+- Make it scannable and easy to read
+- Avoid walls of text"""
+        
+        if is_beginner:
+            formatting_instructions += """
+- When using astrology terms, briefly explain what they mean in parentheses
+- Example: "Your Midheaven (the highest point in your chart, representing career and public image) is in Aries"
+- Keep language accessible and warm, not overly technical"""
+        
         full_prompt = f"""{prompt}
 
 Context:
@@ -552,7 +642,8 @@ IMPORTANT:
 - Reference their specific quiz answers and personality traits
 - Make it feel like a personal reading, not generic astrology
 - Be warm, insightful, and specific to THIS person
-- Adjust tone based on their astrology familiarity level: {self.user.get('astrology_familiarity', 'Beginner')}"""
+- Their astrology knowledge level is: {familiarity}
+{formatting_instructions}"""
         
         result = call_claude_api(full_prompt, max_tokens)
         self.content[section_name] = result or self._get_fallback(section_name)
@@ -979,6 +1070,402 @@ class OrastriaVisualBook:
         
         c.showPage()
     
+    def draw_birth_chart_wheel(self):
+        """Draw a visual birth chart wheel diagram"""
+        y = self.new_page()
+        c = self.c
+        
+        # Title
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 24)
+        c.drawCentredString(self.width/2, self.height - 100, "Your Birth Chart")
+        
+        c.setFillColor(HexColor('#666666'))
+        c.setFont(FONT_BODY_ITALIC, 12)
+        c.drawCentredString(self.width/2, self.height - 125, "A snapshot of the heavens at the moment you were born")
+        
+        # Chart wheel center
+        center_x = self.width / 2
+        center_y = self.height / 2 + 0.5*inch
+        
+        # Draw outer ring (houses)
+        c.setStrokeColor(NAVY)
+        c.setLineWidth(2)
+        c.circle(center_x, center_y, 140)
+        c.setLineWidth(1)
+        c.circle(center_x, center_y, 110)
+        c.circle(center_x, center_y, 60)
+        
+        # Draw house lines
+        c.setStrokeColor(HexColor('#cccccc'))
+        c.setLineWidth(0.5)
+        for i in range(12):
+            angle = (90 - i * 30) * math.pi / 180
+            x1 = center_x + 60 * math.cos(angle)
+            y1 = center_y + 60 * math.sin(angle)
+            x2 = center_x + 140 * math.cos(angle)
+            y2 = center_y + 140 * math.sin(angle)
+            c.line(x1, y1, x2, y2)
+        
+        # Draw zodiac signs around wheel
+        for i, sign in enumerate(ZODIAC_ORDER):
+            angle = (75 - i * 30) * math.pi / 180
+            x = center_x + 125 * math.cos(angle)
+            y = center_y + 125 * math.sin(angle)
+            
+            # Highlight user's signs
+            if sign == self.sun_sign:
+                c.setFillColor(GOLD)
+            elif sign == self.moon_sign:
+                c.setFillColor(HexColor('#8899AA'))
+            elif sign == self.rising_sign:
+                c.setFillColor(HexColor('#AA7755'))
+            else:
+                c.setFillColor(NAVY)
+            
+            c.setFont(FONT_SYMBOL_BOLD, 14)
+            c.drawCentredString(x, y - 5, ZODIAC_SYMBOLS.get(sign, '★'))
+        
+        # Center info
+        c.setFont(FONT_SYMBOL_BOLD, 24)
+        c.setFillColor(GOLD)
+        c.drawCentredString(center_x, center_y + 10, '☉')
+        c.setFillColor(HexColor('#8899AA'))
+        c.drawCentredString(center_x + 15, center_y + 10, '☽')
+        
+        c.setFillColor(NAVY)
+        c.setFont(FONT_BODY, 9)
+        c.drawCentredString(center_x, center_y - 15, f"{self.sun_sign[:3]} / {self.moon_sign[:3]} / {self.rising_sign[:3]}")
+        
+        # Planet positions table
+        y_table = 2.8*inch
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawCentredString(self.width/2, y_table + 0.4*inch, "Your Planetary Positions")
+        
+        # Draw table background
+        table_width = 5*inch
+        table_x = (self.width - table_width) / 2
+        c.setFillColor(HexColor('#f5f5f5'))
+        c.roundRect(table_x, y_table - 1.6*inch, table_width, 1.8*inch, 5, fill=1, stroke=0)
+        
+        planets = [
+            ("☉", "Sun", self.sun_sign),
+            ("☽", "Moon", self.moon_sign),
+            ("↑", "Rising", self.rising_sign),
+            ("☿", "Mercury", self.chart.get('mercury', 'Unknown')),
+            ("♀", "Venus", self.chart.get('venus', 'Unknown')),
+            ("♂", "Mars", self.chart.get('mars', 'Unknown')),
+            ("♃", "Jupiter", self.chart.get('jupiter', 'Unknown')),
+            ("♄", "Saturn", self.chart.get('saturn', 'Unknown')),
+            ("MC", "Midheaven", self.chart.get('midheaven', 'Unknown')),
+            ("☊", "North Node", self.chart.get('north_node', 'Unknown')),
+        ]
+        
+        # Two columns
+        c.setFont(FONT_BODY, 10)
+        y = y_table
+        col1_x = table_x + 20
+        col2_x = table_x + table_width/2 + 20
+        
+        for i, (symbol, name, sign) in enumerate(planets):
+            x = col1_x if i < 5 else col2_x
+            row_y = y - (i % 5) * 0.3*inch
+            
+            c.setFillColor(GOLD)
+            c.setFont(FONT_SYMBOL, 12)
+            c.drawString(x, row_y, symbol)
+            
+            c.setFillColor(NAVY)
+            c.setFont(FONT_BODY, 10)
+            c.drawString(x + 25, row_y, name)
+            
+            c.setFillColor(HexColor('#444444'))
+            c.drawString(x + 90, row_y, sign)
+        
+        c.showPage()
+    
+    def draw_pull_quote(self, quote, y, attribution=None):
+        """Draw a highlighted pull quote box"""
+        c = self.c
+        
+        if y < self.margin + 120:
+            c.showPage()
+            y = self.new_page()
+        
+        # Quote box background
+        box_height = 80
+        c.setFillColor(HexColor('#f8f5f0'))
+        c.roundRect(self.margin + 20, y - box_height + 20, self.width - 2*self.margin - 40, box_height, 8, fill=1, stroke=0)
+        
+        # Left accent bar
+        c.setFillColor(GOLD)
+        c.rect(self.margin + 20, y - box_height + 20, 4, box_height, fill=1, stroke=0)
+        
+        # Quote mark
+        c.setFont(FONT_HEADING_BOLD, 36)
+        c.setFillColor(HexColor('#d4b87a'))
+        c.drawString(self.margin + 35, y - 5, '"')
+        
+        # Quote text
+        c.setFillColor(NAVY)
+        c.setFont(FONT_BODY_ITALIC, 11)
+        wrapper = textwrap.TextWrapper(width=70)
+        lines = wrapper.wrap(quote)
+        quote_y = y - 25
+        for line in lines[:3]:
+            c.drawString(self.margin + 50, quote_y, line)
+            quote_y -= 16
+        
+        if attribution:
+            c.setFont(FONT_BODY, 9)
+            c.setFillColor(HexColor('#888888'))
+            c.drawString(self.margin + 50, quote_y - 5, f"— {attribution}")
+        
+        return y - box_height - 20
+    
+    def draw_key_insight_box(self, title, points, y):
+        """Draw a key insights box with bullet points"""
+        c = self.c
+        
+        if y < self.margin + 150:
+            c.showPage()
+            y = self.new_page()
+        
+        box_height = 30 + len(points) * 22
+        
+        # Box background
+        c.setFillColor(HexColor('#1a1f3c'))
+        c.roundRect(self.margin, y - box_height + 10, self.width - 2*self.margin, box_height, 8, fill=1, stroke=0)
+        
+        # Title
+        c.setFillColor(GOLD)
+        c.setFont(FONT_HEADING_BOLD, 12)
+        c.drawString(self.margin + 15, y - 5, f"✧ {title}")
+        
+        # Points
+        c.setFillColor(white)
+        c.setFont(FONT_BODY, 10)
+        point_y = y - 28
+        for point in points:
+            c.drawString(self.margin + 25, point_y, f"• {point[:80]}")
+            point_y -= 20
+        
+        return y - box_height - 15
+    
+    def draw_glossary_page(self):
+        """Draw a glossary page for beginners"""
+        self.draw_chapter("Astrology Glossary", "Key Terms Explained")
+        y = self.new_page()
+        c = self.c
+        
+        glossary_terms = [
+            ("Sun Sign", "Your core identity and ego - determined by where the Sun was at your birth."),
+            ("Moon Sign", "Your emotional nature and inner self - how you process feelings."),
+            ("Rising Sign (Ascendant)", "The 'mask' you wear - how others perceive you at first meeting."),
+            ("Venus", "Planet of love and beauty - shows how you express affection and what you value."),
+            ("Mars", "Planet of action and desire - represents your drive, passion, and assertion."),
+            ("Mercury", "Planet of communication - how you think, learn, and express ideas."),
+            ("Jupiter", "Planet of expansion - where you find luck, growth, and opportunity."),
+            ("Saturn", "Planet of discipline - your life lessons, responsibilities, and limitations."),
+            ("Midheaven (MC)", "Your public image and career path - what you're known for professionally."),
+            ("North Node", "Your soul's purpose - the direction you're meant to grow toward in this life."),
+            ("Transit", "When a planet moves through a sign, creating temporary influences."),
+            ("Element", "Fire, Earth, Air, or Water - the fundamental energy of each sign."),
+        ]
+        
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 16)
+        c.drawString(self.margin, y, "Understanding Your Chart")
+        y -= 30
+        
+        c.setFont(FONT_BODY, 10)
+        c.setFillColor(HexColor('#666666'))
+        c.drawString(self.margin, y, "Reference these terms as you read through your personalized analysis.")
+        y -= 30
+        
+        for term, definition in glossary_terms:
+            if y < self.margin + 60:
+                c.showPage()
+                y = self.new_page()
+            
+            c.setFillColor(NAVY)
+            c.setFont(FONT_BODY_BOLD, 11)
+            c.drawString(self.margin, y, term)
+            
+            c.setFillColor(HexColor('#444444'))
+            c.setFont(FONT_BODY, 10)
+            
+            # Wrap definition
+            wrapper = textwrap.TextWrapper(width=85)
+            lines = wrapper.wrap(definition)
+            def_y = y - 16
+            for line in lines:
+                c.drawString(self.margin + 10, def_y, line)
+                def_y -= 14
+            
+            y = def_y - 10
+        
+        c.showPage()
+    
+    def draw_summary_page(self):
+        """Draw a final summary page with key takeaways"""
+        self.draw_chapter("Your Cosmic Summary", "Key Takeaways at a Glance")
+        y = self.new_page()
+        c = self.c
+        
+        # Big Three summary box
+        c.setFillColor(HexColor('#1a1f3c'))
+        c.roundRect(self.margin, y - 100, self.width - 2*self.margin, 110, 10, fill=1, stroke=0)
+        
+        c.setFillColor(GOLD)
+        c.setFont(FONT_HEADING_BOLD, 16)
+        c.drawCentredString(self.width/2, y - 15, "Your Big Three")
+        
+        # Three columns
+        col_width = (self.width - 2*self.margin) / 3
+        placements = [
+            ("☉", "SUN", self.sun_sign),
+            ("☽", "MOON", self.moon_sign),
+            ("↑", "RISING", self.rising_sign),
+        ]
+        
+        for i, (symbol, label, sign) in enumerate(placements):
+            col_x = self.margin + col_width/2 + i * col_width
+            
+            c.setFont(FONT_SYMBOL_BOLD, 28)
+            c.setFillColor(GOLD)
+            c.drawCentredString(col_x, y - 45, symbol)
+            
+            c.setFont(FONT_BODY, 9)
+            c.setFillColor(HexColor('#888888'))
+            c.drawCentredString(col_x, y - 65, label)
+            
+            c.setFont(FONT_BODY_BOLD, 12)
+            c.setFillColor(white)
+            c.drawCentredString(col_x, y - 82, sign)
+        
+        y -= 130
+        
+        # Top compatible signs
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawString(self.margin, y, "✧ Your Top Compatible Signs")
+        y -= 25
+        
+        # Get top 3 compatibility scores
+        compat = self.content.get('compatibility', {})
+        sorted_compat = sorted(
+            [(sign, data.get('percentage', 70) if isinstance(data, dict) else 70) 
+             for sign, data in compat.items()],
+            key=lambda x: x[1],
+            reverse=True
+        )[:3]
+        
+        for sign, pct in sorted_compat:
+            c.setFillColor(GOLD)
+            c.setFont(FONT_SYMBOL, 14)
+            c.drawString(self.margin + 10, y, ZODIAC_SYMBOLS.get(sign, '★'))
+            
+            c.setFillColor(NAVY)
+            c.setFont(FONT_BODY_BOLD, 11)
+            c.drawString(self.margin + 35, y, sign)
+            
+            c.setFillColor(HexColor('#666666'))
+            c.setFont(FONT_BODY, 11)
+            c.drawString(self.margin + 130, y, f"{pct}%")
+            y -= 22
+        
+        y -= 20
+        
+        # Key numbers
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawString(self.margin, y, "✧ Your Numbers")
+        y -= 25
+        
+        life_path = calculate_life_path(self.user.get('birth_date', '2000-01-01'))
+        expression = calculate_expression_number(self.name)
+        
+        c.setFont(FONT_BODY, 11)
+        c.setFillColor(HexColor('#444444'))
+        c.drawString(self.margin + 10, y, f"Life Path: {life_path}")
+        c.drawString(self.margin + 150, y, f"Expression: {expression}")
+        y -= 35
+        
+        # Key dates preview
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawString(self.margin, y, "✧ 2026 Highlights")
+        y -= 25
+        
+        highlights = [
+            "Career breakthrough windows in spring and fall",
+            "Relationship growth opportunities mid-year",
+            "Personal transformation period approaching",
+        ]
+        
+        c.setFont(FONT_BODY, 10)
+        c.setFillColor(HexColor('#444444'))
+        for highlight in highlights:
+            c.drawString(self.margin + 10, y, f"→ {highlight}")
+            y -= 18
+        
+        y -= 25
+        
+        # Lucky elements box
+        c.setFillColor(HexColor('#f8f5f0'))
+        c.roundRect(self.margin, y - 70, self.width - 2*self.margin, 80, 8, fill=1, stroke=0)
+        
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 12)
+        c.drawCentredString(self.width/2, y - 10, "Your Lucky Elements")
+        
+        element = ZODIAC_DATA.get(self.sun_sign, {}).get('element', 'Fire')
+        lucky_colors = {
+            'Fire': 'Red, Orange, Gold',
+            'Earth': 'Green, Brown, Tan',
+            'Air': 'Yellow, Light Blue, White',
+            'Water': 'Blue, Silver, Sea Green'
+        }
+        lucky_days = {
+            'Fire': 'Tuesday, Sunday',
+            'Earth': 'Friday, Saturday',
+            'Air': 'Wednesday, Thursday',
+            'Water': 'Monday, Friday'
+        }
+        
+        c.setFont(FONT_BODY, 10)
+        c.setFillColor(HexColor('#444444'))
+        c.drawString(self.margin + 20, y - 35, f"Element: {element}")
+        c.drawString(self.margin + 20, y - 52, f"Lucky Colors: {lucky_colors.get(element, 'Gold, Purple')}")
+        c.drawString(self.width/2 + 20, y - 35, f"Lucky Days: {lucky_days.get(element, 'Sunday')}")
+        c.drawString(self.width/2 + 20, y - 52, f"Power Crystal: {ZODIAC_DATA.get(self.sun_sign, {}).get('crystal', 'Clear Quartz')}")
+        
+        c.showPage()
+        """Draw chapter title page"""
+        y = self.new_page()
+        c = self.c
+        
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL, 14)
+        c.drawCentredString(self.width/2, self.height - 180, "✧  ✦  ✧")
+        
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 32)
+        c.drawCentredString(self.width/2, self.height - 280, title)
+        
+        if subtitle:
+            c.setFillColor(SOFT_GOLD)
+            c.setFont(FONT_BODY_ITALIC, 16)
+            c.drawCentredString(self.width/2, self.height - 320, subtitle)
+        
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL, 14)
+        c.drawCentredString(self.width/2, self.height - 380, "✧  ✦  ✧")
+        
+        c.showPage()
+    
     def draw_section_title(self, text, y):
         """Draw section title with underline"""
         c = self.c
@@ -1106,6 +1593,14 @@ class OrastriaVisualBook:
         
         self.draw_cover()
         
+        # Birth Chart Wheel (NEW)
+        self.draw_birth_chart_wheel()
+        
+        # Glossary for beginners (NEW - at the start for reference)
+        familiarity = self.user.get('astrology_familiarity', 'Beginner')
+        if familiarity.lower() in ['beginner', 'new', 'none', 'just starting']:
+            self.draw_glossary_page()
+        
         # Introduction
         self.draw_chapter("Introduction", "Your Cosmic Journey Begins")
         y = self.new_page()
@@ -1224,6 +1719,9 @@ class OrastriaVisualBook:
         y = self.draw_section_title("Your Power Crystals", y)
         y = self.draw_text(self.content.get('crystals', ''), y)
         self.c.showPage()
+        
+        # Summary page (NEW - before closing)
+        self.draw_summary_page()
         
         # Closing
         self.draw_chapter("Closing Thoughts", "Your Journey Continues")
