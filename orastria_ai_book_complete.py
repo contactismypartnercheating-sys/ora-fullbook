@@ -1444,6 +1444,222 @@ class OrastriaVisualBook:
         
         c.showPage()
     
+    def draw_upsell_page(self):
+        """Draw the Orastria App upsell page"""
+        c = self.c
+        self.page_num += 1
+        
+        # Colors for this page
+        DEEP_NAVY = HexColor('#0f1628')
+        MID_NAVY = HexColor('#252b4a')
+        PURPLE_ICON = HexColor('#6b4c9a')
+        LIGHT_PURPLE = HexColor('#9b7bc7')
+        TEAL = HexColor('#2d7a6d')
+        LIGHT_TEAL = HexColor('#3a9a8a')
+        SOFT_GOLD = HexColor('#d4b87a')
+        
+        # Background gradient effect
+        steps = 60
+        step_height = self.height / steps
+        color1 = DEEP_NAVY
+        color2 = HexColor('#1a2040')
+        for i in range(steps):
+            ratio = i / steps
+            r = color1.red + (color2.red - color1.red) * ratio
+            g = color1.green + (color2.green - color1.green) * ratio
+            b = color1.blue + (color2.blue - color1.blue) * ratio
+            c.setFillColor(Color(r, g, b))
+            c.rect(0, self.height - (i + 1) * step_height, self.width, step_height + 1, fill=1, stroke=0)
+        
+        # Top decorative arc
+        c.setFillColor(MID_NAVY)
+        c.ellipse(-2*inch, self.height - 2*inch, self.width + 2*inch, self.height + 2.5*inch, fill=1, stroke=0)
+        
+        # Gold accent line at top
+        c.setFillColor(GOLD)
+        c.rect(0, self.height - 6, self.width, 6, fill=1, stroke=0)
+        
+        # Corner stars
+        c.setFillColor(SOFT_GOLD)
+        c.setFont(FONT_SYMBOL, 10)
+        c.drawCentredString(35, self.height - 35, '✦')
+        c.drawCentredString(self.width - 35, self.height - 35, '✦')
+        
+        # ---- HEADER ----
+        
+        # "EXCLUSIVE GIFT" badge
+        badge_y = self.height - 70
+        c.setFillColor(GOLD)
+        c.roundRect(self.width/2 - 85, badge_y - 9, 170, 24, 12, fill=1, stroke=0)
+        c.setFillColor(DEEP_NAVY)
+        c.setFont(FONT_BODY_BOLD, 9)
+        c.drawCentredString(self.width/2, badge_y - 1, "YOUR EXCLUSIVE GIFT")
+        
+        # Main headline
+        c.setFillColor(white)
+        c.setFont(FONT_HEADING_BOLD, 34)
+        c.drawCentredString(self.width/2, self.height - 115, "Continue Your")
+        c.drawCentredString(self.width/2, self.height - 152, "Cosmic Journey")
+        
+        # Subheadline
+        c.setFillColor(SOFT_GOLD)
+        c.setFont(FONT_BODY_ITALIC, 13)
+        c.drawCentredString(self.width/2, self.height - 180, "Your personalized book is just the beginning")
+        
+        # ---- IMAGE ----
+        
+        img_y = self.height - 365
+        img_width = 4.8 * inch
+        img_height = 2.3 * inch
+        img_x = (self.width - img_width) / 2
+        
+        # Glow behind image
+        c.setFillColor(HexColor('#2a3055'))
+        c.roundRect(img_x - 5, img_y - 5, img_width + 10, img_height + 10, 14, fill=1, stroke=0)
+        
+        # Try to load and draw the promo image
+        promo_image_url = "https://f005.backblazeb2.com/file/publicorastria/replicate-prediction-9xe813f1xnrmc0ctzvvv0s1q34.png"
+        try:
+            import tempfile
+            import urllib.request
+            
+            # Download image to temp file
+            temp_img = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+            urllib.request.urlretrieve(promo_image_url, temp_img.name)
+            
+            # Draw image
+            c.drawImage(temp_img.name, img_x, img_y, width=img_width, height=img_height, 
+                       preserveAspectRatio=True, mask='auto')
+            
+            # Clean up
+            import os
+            os.unlink(temp_img.name)
+        except Exception as e:
+            print(f"⚠️ Could not load promo image: {e}")
+            # Fallback: draw placeholder
+            c.setFillColor(HexColor('#1a1f3c'))
+            c.roundRect(img_x, img_y, img_width, img_height, 10, fill=1, stroke=0)
+            c.setStrokeColor(SOFT_GOLD)
+            c.setLineWidth(1.5)
+            c.roundRect(img_x, img_y, img_width, img_height, 10, fill=0, stroke=1)
+            c.setFillColor(HexColor('#666688'))
+            c.setFont(FONT_BODY, 10)
+            c.drawCentredString(self.width/2, img_y + img_height/2, "[ Orastria App ]")
+        
+        # ---- FREE TRIAL BANNER ----
+        
+        trial_y = img_y - 45
+        
+        c.setFillColor(TEAL)
+        c.roundRect(self.width/2 - 135, trial_y - 10, 270, 34, 17, fill=1, stroke=0)
+        
+        c.setFillColor(LIGHT_TEAL)
+        c.roundRect(self.width/2 - 132, trial_y - 7, 264, 28, 14, fill=1, stroke=0)
+        
+        c.setFillColor(white)
+        c.setFont(FONT_BODY_BOLD, 13)
+        c.drawCentredString(self.width/2, trial_y + 1, "FREE 1-MONTH TRIAL INCLUDED")
+        
+        # ---- FEATURES ----
+        
+        features_header_y = trial_y - 45
+        
+        c.setFillColor(GOLD)
+        c.setFont(FONT_HEADING_BOLD, 18)
+        c.drawCentredString(self.width/2, features_header_y, "Unlock Your Full Cosmic Toolkit")
+        
+        # Divider line
+        c.setStrokeColor(HexColor('#3a4060'))
+        c.setLineWidth(1)
+        c.line(self.margin + 80, features_header_y - 12, self.width - self.margin - 80, features_header_y - 12)
+        
+        features = [
+            ("☉", "Daily Personalized Horoscopes", "Readings based on YOUR natal chart"),
+            ("☽", "Tarot & Oracle Readings", "Ask any question, receive guidance"),
+            ("✧", "Dream Interpretation", "Decode your subconscious messages"),
+            ("♫", "Sacred Frequencies", "Healing sounds for transformation"),
+            ("★", "Master Astral Live Chat", "24/7 guidance from real advisors"),
+            ("◎", "Real-Time Planetary Data", "NASA precision for accuracy"),
+        ]
+        
+        # Center columns properly
+        col_width = 230
+        gap = 30
+        total_width = col_width * 2 + gap
+        col1_x = (self.width - total_width) / 2
+        col2_x = col1_x + col_width + gap
+        
+        start_y = features_header_y - 38
+        row_height = 48
+        
+        for i, (icon, title, desc) in enumerate(features):
+            col = i % 2
+            row = i // 2
+            
+            x = col1_x if col == 0 else col2_x
+            y = start_y - row * row_height
+            
+            # Icon circle
+            c.setFillColor(PURPLE_ICON)
+            c.circle(x + 16, y + 6, 18, fill=1, stroke=0)
+            
+            c.setFillColor(LIGHT_PURPLE)
+            c.circle(x + 16, y + 7, 15, fill=1, stroke=0)
+            
+            # Icon
+            c.setFillColor(white)
+            c.setFont(FONT_SYMBOL_BOLD, 14)
+            c.drawCentredString(x + 16, y + 2, icon)
+            
+            # Title
+            c.setFillColor(white)
+            c.setFont(FONT_BODY_BOLD, 10)
+            c.drawString(x + 40, y + 10, title)
+            
+            # Description
+            c.setFillColor(HexColor('#9999aa'))
+            c.setFont(FONT_BODY, 8)
+            c.drawString(x + 40, y - 4, desc)
+        
+        # ---- CTA ----
+        
+        cta_y = 75
+        
+        # Separator
+        c.setStrokeColor(HexColor('#3a4060'))
+        c.setLineWidth(0.5)
+        c.line(self.margin + 100, cta_y + 50, self.width - self.margin - 100, cta_y + 50)
+        
+        # Button shadow
+        c.setFillColor(HexColor('#a07d1f'))
+        c.roundRect(self.width/2 - 112, cta_y - 2, 224, 42, 21, fill=1, stroke=0)
+        
+        # Button
+        c.setFillColor(GOLD)
+        c.roundRect(self.width/2 - 110, cta_y, 220, 40, 20, fill=1, stroke=0)
+        
+        c.setFillColor(DEEP_NAVY)
+        c.setFont(FONT_BODY_BOLD, 14)
+        c.drawCentredString(self.width/2, cta_y + 13, "Start Your Free Trial")
+        
+        # URL
+        c.setFillColor(SOFT_GOLD)
+        c.setFont(FONT_BODY, 10)
+        c.drawCentredString(self.width/2, cta_y - 18, "orastria.com")
+        
+        # ---- FOOTER ----
+        
+        c.setFillColor(SOFT_GOLD)
+        c.setFont(FONT_SYMBOL, 10)
+        c.drawCentredString(35, 35, '✦')
+        c.drawCentredString(self.width - 35, 35, '✦')
+        
+        c.setFillColor(HexColor('#555566'))
+        c.setFont(FONT_BODY, 8)
+        c.drawCentredString(self.width/2, 22, "— Your journey continues —")
+        
+        c.showPage()
+    
     def draw_section_title(self, text, y):
         """Draw section title with underline"""
         c = self.c
@@ -1714,6 +1930,10 @@ class OrastriaVisualBook:
         self.c.setFillColor(GOLD)
         self.c.setFont(FONT_HEADING_BOLD, 26)
         self.c.drawString(self.margin, y - 35, "ORASTRIA")
+        self.c.showPage()
+        
+        # Upsell page (final page)
+        self.draw_upsell_page()
         
         self.c.save()
         print(f"✅ Book saved: {self.output_path}")
