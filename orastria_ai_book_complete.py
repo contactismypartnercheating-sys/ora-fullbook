@@ -1058,20 +1058,20 @@ class OrastriaVisualBook:
         y = self.new_page()
         c = self.c
         
-        # Chapter icons mapping
+        # Chapter icons mapping - using only DejaVuSans-supported symbols
         chapter_icons = {
             "Introduction": "✧",
-            "The Big Three": "☉ ☽ ↑",
-            "Your Inner World": "🔮",
+            "The Big Three": "☉",
+            "Your Inner World": "◆",
             "Love & Relationships": "♥",
             "Compatibility Guide": "♡",
             "Career & Purpose": "★",
-            "Important Dates": "📅",
-            "Your Year Ahead": "🌟",
-            "Monthly Forecasts": "📆",
-            "Numerology": "123",
-            "Tarot Guidance": "🎴",
-            "Crystals & Rituals": "💎",
+            "Important Dates": "◈",
+            "Your Year Ahead": "☆",
+            "Monthly Forecasts": "◇",
+            "Numerology": "∞",
+            "Tarot Guidance": "▲",
+            "Crystals & Rituals": "◆",
             "Your Cosmic Summary": "✦",
             "Closing Thoughts": "∞",
         }
@@ -1499,12 +1499,6 @@ class OrastriaVisualBook:
             'Air': 'Wednesday, Thursday',
             'Water': 'Monday, Friday'
         }
-        element_icons = {
-            'Fire': '🔥',
-            'Earth': '🌍',
-            'Air': '💨',
-            'Water': '💧'
-        }
         
         # Section title
         c.setFillColor(GOLD)
@@ -1515,20 +1509,21 @@ class OrastriaVisualBook:
         c.drawString(self.margin + 18, y, "Your Lucky Elements")
         y -= 25
         
-        # 4 cards in a row
-        card_width = (self.width - 2*self.margin - 30) / 4
-        card_height = 70
+        # 4 cards in a row - wider cards
+        card_width = (self.width - 2*self.margin - 24) / 4
+        card_height = 75
         card_y = y - card_height
         
+        # Use only DejaVuSans-supported icons
         cards = [
             ("Element", element, ZODIAC_SYMBOLS.get(self.sun_sign, '★')),
-            ("Lucky Colors", lucky_colors.get(element, 'Gold'), "🎨"),
-            ("Lucky Days", lucky_days.get(element, 'Sunday'), "📅"),
-            ("Power Crystal", ZODIAC_DATA.get(self.sun_sign, {}).get('crystal', 'Quartz'), "💎"),
+            ("Lucky Colors", lucky_colors.get(element, 'Gold'), "◆"),
+            ("Lucky Days", lucky_days.get(element, 'Sunday'), "☆"),
+            ("Power Crystal", ZODIAC_DATA.get(self.sun_sign, {}).get('crystal', 'Quartz'), "◇"),
         ]
         
         for i, (label, value, icon) in enumerate(cards):
-            card_x = self.margin + i * (card_width + 10)
+            card_x = self.margin + i * (card_width + 8)
             
             # Card background
             c.setFillColor(HexColor('#f5f3ef'))
@@ -1541,20 +1536,18 @@ class OrastriaVisualBook:
             
             # Icon at top
             c.setFillColor(GOLD)
-            c.setFont(FONT_SYMBOL, 16)
-            c.drawCentredString(card_x + card_width/2, card_y + card_height - 18, icon)
+            c.setFont(FONT_SYMBOL, 18)
+            c.drawCentredString(card_x + card_width/2, card_y + card_height - 20, icon)
             
             # Label
             c.setFillColor(HexColor('#888888'))
             c.setFont(FONT_BODY, 8)
-            c.drawCentredString(card_x + card_width/2, card_y + card_height - 35, label)
+            c.drawCentredString(card_x + card_width/2, card_y + card_height - 38, label)
             
-            # Value
+            # Value - smaller font to fit
             c.setFillColor(NAVY)
-            c.setFont(FONT_BODY_BOLD, 9)
-            # Truncate if too long
-            display_value = value if len(value) < 15 else value[:12] + "..."
-            c.drawCentredString(card_x + card_width/2, card_y + 12, display_value)
+            c.setFont(FONT_BODY_BOLD, 8)
+            c.drawCentredString(card_x + card_width/2, card_y + 12, value)
         
         c.showPage()
     
@@ -1911,12 +1904,12 @@ class OrastriaVisualBook:
         c.setLineWidth(1.5)
         c.line(self.width/2 - 80, self.height - 140, self.width/2 + 80, self.height - 140)
         
-        # Table of contents entries
+        # Table of contents entries - using only DejaVuSans-supported symbols
         toc_entries = [
             ("Your Birth Chart", "☉"),
             ("Introduction", "✧"),
-            ("The Big Three: Sun, Moon & Rising", "☉ ☽ ↑"),
-            ("Your Inner World", "♠"),
+            ("The Big Three: Sun, Moon & Rising", "★"),
+            ("Your Inner World", "◆"),
             ("Love & Relationships", "♥"),
             ("Compatibility Guide", "♡"),
             ("Career & Purpose", "★"),
@@ -1924,8 +1917,8 @@ class OrastriaVisualBook:
             ("Your Year Ahead: 2026", "☆"),
             ("Monthly Forecasts", "◇"),
             ("Numerology", "∞"),
-            ("Tarot Guidance", "◆"),
-            ("Crystals & Rituals", "◈"),
+            ("Tarot Guidance", "▲"),
+            ("Crystals & Rituals", "◆"),
             ("Your Cosmic Summary", "✦"),
             ("Closing Thoughts", "∞"),
         ]
@@ -1941,23 +1934,18 @@ class OrastriaVisualBook:
             # Title
             c.setFillColor(NAVY)
             c.setFont(FONT_BODY, 12)
-            c.drawString(self.margin + 40, y, title)
+            c.drawString(self.margin + 35, y, title)
             
-            # Dots
+            # Dots leading line
             c.setFillColor(HexColor('#cccccc'))
-            dots_start = self.margin + 45 + c.stringWidth(title, FONT_BODY, 12)
-            dots_end = self.width - self.margin - 30
+            dots_start = self.margin + 40 + c.stringWidth(title, FONT_BODY, 12)
+            dots_end = self.width - self.margin
             dot_x = dots_start + 10
             while dot_x < dots_end:
                 c.drawString(dot_x, y, ".")
-                dot_x += 8
+                dot_x += 6
             
             y -= 28
-        
-        # Footer note
-        c.setFillColor(HexColor('#888888'))
-        c.setFont(FONT_BODY_ITALIC, 9)
-        c.drawCentredString(self.width/2, self.margin + 20, "Page numbers are approximate and may vary based on content length")
         
         c.showPage()
     
