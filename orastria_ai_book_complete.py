@@ -156,123 +156,177 @@ ZODIAC_DATA = {
 }
 
 # ============================================================
-# PROKERALA API INTEGRATION
+# PROKERALA API INTEGRATION (matching working sample book)
 # ============================================================
 
-class ProkeralaAPI:
-    """Integration with Prokerala API for astrological calculations"""
+ZODIAC_SIGNS = [
+    'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+    'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+]
+
+# Ayanamsa offset (Lahiri) - converts from Sidereal to Tropical
+AYANAMSA = 24.0
+
+
+def get_prokerala_token():
+    """Get OAuth token from Prokerala - EXACT working version"""
+    url = "https://api.prokerala.com/token"
+    data = {
+        'grant_type': 'client_credentials',
+        'client_id': PROKERALA_CLIENT_ID,
+        'client_secret': PROKERALA_CLIENT_SECRET
+    }
+    response = requests.post(url, data=data)
+    response.raise_for_status()
+    return response.json()['access_token']
+
+
+def geocode_location(place_name):
+    """Get latitude, longitude, and timezone for a place using Nominatim"""
+    # Using Nominatim (free, no API key needed)
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {
+        'q': place_name,
+        'format': 'json',
+        'limit': 1
+    }
+    headers = {'User-Agent': 'OrastriaApp/1.0'}
     
-    TOKEN_URL = "https://api.prokerala.com/token"
-    API_BASE = "https://api.prokerala.com/v2/astrology"
+    response = requests.get(url, params=params, headers=headers, timeout=30)
+    response.raise_for_status()
     
-    def __init__(self):
-        self.client_id = PROKERALA_CLIENT_ID
-        self.client_secret = PROKERALA_CLIENT_SECRET
-        self.access_token = None
-        self.token_expiry = None
+    results = response.json()
+    if not results:
+        raise ValueError(f"Could not find location: {place_name}")
     
-    def get_access_token(self):
-        """Get OAuth access token"""
-        if self.access_token and self.token_expiry and datetime.now() < self.token_expiry:
-            return self.access_token
-        
-        try:
-            response = requests.post(
-                self.TOKEN_URL,
-                data={
-                    'grant_type': 'client_credentials',
-                    'client_id': self.client_id,
-                    'client_secret': self.client_secret
-                },
-                timeout=30
-            )
-            response.raise_for_status()
-            data = response.json()
-            self.access_token = data['access_token']
-            self.token_expiry = datetime.now() + timedelta(seconds=data.get('expires_in', 3600) - 60)
-            return self.access_token
-        except Exception as e:
-            print(f"Prokerala auth error: {e}")
-            return None
+    lat = float(results[0]['lat'])
+    lon = float(results[0]['lon'])
     
-    def get_coordinates(self, place_name):
-        """Get coordinates for a place"""
-        try:
-            token = self.get_access_token()
-            if not token:
-                return None, None
-            
-            response = requests.get(
-                f"{self.API_BASE}/location/search",
-                headers={"Authorization": f"Bearer {token}"},
-                params={"location": place_name},
-                timeout=30
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            if data.get('data') and len(data['data']) > 0:
-                loc = data['data'][0]
-                return loc['latitude'], loc['longitude']
-            return None, None
-        except Exception as e:
-            print(f"Geocoding error: {e}")
-            return None, None
+    # Get timezone using TimeAPI
+    tz_url = f"https://timeapi.io/api/TimeZone/coordinate?latitude={lat}&longitude={lon}"
+    tz_response = requests.get(tz_url, timeout=30)
     
-    def get_kundli(self, birth_date, birth_time, latitude, longitude, timezone="+00:00"):
-        """Get Kundli/natal chart with all placements"""
-        try:
-            token = self.get_access_token()
-            if not token:
-                return None
-            
-            datetime_str = f"{birth_date}T{birth_time}:00{timezone}"
-            
-            response = requests.get(
-                f"{self.API_BASE}/kundli",
-                headers={"Authorization": f"Bearer {token}"},
-                params={
-                    "datetime": datetime_str,
-                    "coordinates": f"{latitude},{longitude}",
-                    "ayanamsa": 1
-                },
-                timeout=30
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            print(f"Kundli error: {e}")
-            return None
+    if tz_response.ok:
+        timezone = tz_response.json().get('timeZone', 'UTC')
+    else:
+        timezone = 'UTC'
     
-    def extract_chart_data(self, api_response):
-        """Extract readable chart data from API response"""
-        if not api_response or 'data' not in api_response:
-            return None
+    return lat, lon, timezone
+
+
+def get_tz_offset(timezone):
+    """Get timezone offset string like +03:00"""
+    offsets = {
+        'Asia/Beirut': '+02:00',
+        'America/New_York': '-05:00',
+        'America/Chicago': '-06:00',
+        'America/Los_Angeles': '-08:00',
+        'America/Denver': '-07:00',
+        'Europe/London': '+00:00',
+        'Europe/Paris': '+01:00',
+        'Europe/Berlin': '+01:00',
+        'Asia/Dubai': '+04:00',
+        'Asia/Kolkata': '+05:30',
+        'Asia/Tokyo': '+09:00',
+        'Australia/Sydney': '+11:00',
+        'Pacific/Auckland': '+13:00',
+        'UTC': '+00:00'
+    }
+    return offsets.get(timezone, '+00:00')
+
+
+def longitude_to_tropical_sign(longitude):
+    """Convert longitude to tropical/Western zodiac sign"""
+    tropical_longitude = (longitude + AYANAMSA) % 360
+    sign_index = int(tropical_longitude / 30)
+    return ZODIAC_SIGNS[sign_index]
+
+
+def get_birth_chart(birth_date, birth_time, latitude, longitude, timezone):
+    """Get birth chart from Prokerala API - EXACT working version"""
+    token = get_prokerala_token()
+    
+    datetime_str = f"{birth_date}T{birth_time}:00{get_tz_offset(timezone)}"
+    
+    url = "https://api.prokerala.com/v2/astrology/planet-position"
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {
+        "ayanamsa": 1,
+        "coordinates": f"{latitude},{longitude}",
+        "datetime": datetime_str
+    }
+    
+    response = requests.get(url, headers=headers, params=params, timeout=30)
+    response.raise_for_status()
+    
+    data = response.json()['data']
+    
+    # Also get the ascendant/rising sign
+    asc_url = "https://api.prokerala.com/v2/astrology/kundli"
+    asc_response = requests.get(asc_url, headers=headers, params=params, timeout=30)
+    asc_data = asc_response.json()['data'] if asc_response.ok else None
+    
+    return parse_chart_data(data, asc_data)
+
+
+def parse_chart_data(planet_data, kundli_data):
+    """Parse Prokerala response into our format - converts to Western/Tropical zodiac"""
+    
+    chart = {
+        'sun_sign': 'Aries',
+        'moon_sign': 'Aries',
+        'rising_sign': 'Aries',
+        'mercury': 'Aries',
+        'venus': 'Aries',
+        'mars': 'Aries',
+        'jupiter': 'Aries',
+        'saturn': 'Aries',
+        'midheaven': 'Aries',
+        'north_node': 'Aries',
+    }
+    
+    planet_name_map = {
+        'Sun': 'sun_sign',
+        'Moon': 'moon_sign',
+        'Mercury': 'mercury',
+        'Venus': 'venus',
+        'Mars': 'mars',
+        'Jupiter': 'jupiter',
+        'Saturn': 'saturn',
+        'Rahu': 'north_node',
+        'Ascendant': 'rising_sign'
+    }
+    
+    # Parse planet positions
+    planets = planet_data.get('planet_position', [])
+    
+    for planet in planets:
+        planet_name = planet.get('name', '')
+        longitude = planet.get('longitude', 0)
         
-        data = api_response['data']
-        chart = {}
+        if longitude > 0:
+            sign_name = longitude_to_tropical_sign(longitude)
+        else:
+            rasi = planet.get('rasi', {})
+            rasi_id = rasi.get('id', -1)
+            if 0 <= rasi_id < 12:
+                tropical_rasi_id = (rasi_id + 1) % 12
+                sign_name = ZODIAC_SIGNS[tropical_rasi_id]
+            else:
+                sign_name = 'Aries'
         
-        planet_map = {
-            'Sun': 'sun_sign', 'Moon': 'moon_sign', 'Mercury': 'mercury',
-            'Venus': 'venus', 'Mars': 'mars', 'Jupiter': 'jupiter',
-            'Saturn': 'saturn', 'Rahu': 'north_node', 'Ketu': 'south_node',
-            'Uranus': 'uranus', 'Neptune': 'neptune', 'Pluto': 'pluto'
-        }
-        
-        if 'planet_positions' in data:
-            for planet in data['planet_positions']:
-                name = planet.get('name', '')
-                sign = planet.get('sign', {}).get('name', '')
-                if name in planet_map and sign:
-                    chart[planet_map[name]] = sign
-        
-        if 'ascendant' in data:
-            chart['rising_sign'] = data['ascendant'].get('sign', {}).get('name', '')
-        
-        if 'midheaven' in data:
-            chart['midheaven'] = data['midheaven'].get('sign', {}).get('name', '')
-        
-        return chart
+        if planet_name in planet_name_map:
+            chart[planet_name_map[planet_name]] = sign_name
+    
+    # Get rising sign from kundli data if available
+    if kundli_data:
+        ascendant = kundli_data.get('ascendant', {})
+        if ascendant:
+            asc_longitude = ascendant.get('longitude', 0)
+            if asc_longitude > 0:
+                chart['rising_sign'] = longitude_to_tropical_sign(asc_longitude)
+    
+    return chart
 
 
 def get_chart_from_prokerala(birth_date, birth_time, birth_place):
@@ -281,19 +335,22 @@ def get_chart_from_prokerala(birth_date, birth_time, birth_place):
         print("Prokerala credentials not configured")
         return None
     
-    api = ProkeralaAPI()
-    
-    lat, lng = api.get_coordinates(birth_place)
-    if not lat or not lng:
-        print(f"Could not geocode: {birth_place}")
+    try:
+        print(f"📍 Geocoding: {birth_place}")
+        latitude, longitude, timezone = geocode_location(birth_place)
+        print(f"✅ Location: {latitude}, {longitude} (TZ: {timezone})")
+        
+        print(f"🔮 Fetching chart from Prokerala...")
+        chart = get_birth_chart(birth_date, birth_time, latitude, longitude, timezone)
+        print(f"✅ Chart received: Sun={chart['sun_sign']}, Moon={chart['moon_sign']}, Rising={chart['rising_sign']}")
+        
+        return chart
+        
+    except Exception as e:
+        print(f"❌ Prokerala error: {e}")
+        import traceback
+        traceback.print_exc()
         return None
-    
-    chart_response = api.get_kundli(birth_date, birth_time, lat, lng)
-    if not chart_response:
-        return None
-    
-    chart_data = api.extract_chart_data(chart_response)
-    return chart_data
 
 
 # ============================================================
@@ -1221,16 +1278,16 @@ def generate_book(user_data, output_path):
     if not chart_data:
         print("⚠️ Using provided/default chart data")
         chart_data = {
-            'sun_sign': user_data.get('sun_sign', 'Aries'),
-            'moon_sign': user_data.get('moon_sign', 'Aries'),
-            'rising_sign': user_data.get('rising_sign', 'Aries'),
-            'mercury': user_data.get('mercury', ''),
-            'venus': user_data.get('venus', ''),
-            'mars': user_data.get('mars', ''),
-            'jupiter': user_data.get('jupiter', ''),
-            'saturn': user_data.get('saturn', ''),
-            'midheaven': user_data.get('midheaven', ''),
-            'north_node': user_data.get('north_node', ''),
+            'sun_sign': user_data.get('sun_sign') or 'Aries',
+            'moon_sign': user_data.get('moon_sign') or 'Aries',
+            'rising_sign': user_data.get('rising_sign') or 'Aries',
+            'mercury': user_data.get('mercury') or 'Aries',
+            'venus': user_data.get('venus') or 'Aries',
+            'mars': user_data.get('mars') or 'Aries',
+            'jupiter': user_data.get('jupiter') or 'Aries',
+            'saturn': user_data.get('saturn') or 'Aries',
+            'midheaven': user_data.get('midheaven') or 'Aries',
+            'north_node': user_data.get('north_node') or 'Aries',
         }
     
     return generate_ai_book(user_data, chart_data, output_path)
