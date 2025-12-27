@@ -1443,28 +1443,6 @@ class OrastriaVisualBook:
         c.drawString(self.width/2 + 20, y - 52, f"Power Crystal: {ZODIAC_DATA.get(self.sun_sign, {}).get('crystal', 'Clear Quartz')}")
         
         c.showPage()
-        """Draw chapter title page"""
-        y = self.new_page()
-        c = self.c
-        
-        c.setFillColor(GOLD)
-        c.setFont(FONT_SYMBOL, 14)
-        c.drawCentredString(self.width/2, self.height - 180, "✧  ✦  ✧")
-        
-        c.setFillColor(NAVY)
-        c.setFont(FONT_HEADING_BOLD, 32)
-        c.drawCentredString(self.width/2, self.height - 280, title)
-        
-        if subtitle:
-            c.setFillColor(SOFT_GOLD)
-            c.setFont(FONT_BODY_ITALIC, 16)
-            c.drawCentredString(self.width/2, self.height - 320, subtitle)
-        
-        c.setFillColor(GOLD)
-        c.setFont(FONT_SYMBOL, 14)
-        c.drawCentredString(self.width/2, self.height - 380, "✧  ✦  ✧")
-        
-        c.showPage()
     
     def draw_section_title(self, text, y):
         """Draw section title with underline"""
