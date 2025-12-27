@@ -639,11 +639,18 @@ Context:
 
 IMPORTANT: 
 - Write in second person ("you")
-- Reference their specific quiz answers and personality traits
 - Make it feel like a personal reading, not generic astrology
 - Be warm, insightful, and specific to THIS person
 - Their astrology knowledge level is: {familiarity}
-{formatting_instructions}"""
+{formatting_instructions}
+
+CRITICAL NARRATIVE RULES:
+- DO NOT quote their exact quiz answers in quotation marks (e.g., never write 'Your "sometimes" need for approval' or 'Your "strongly agree" response')
+- Instead, SYNTHESIZE their answers naturally into flowing analysis
+- BAD: 'Your "somewhat agree" response to social insecurity...'
+- GOOD: 'You tend to feel more reserved in new social situations...'
+- DO NOT start any section with a title like "Analysis for [Name]" or "[Topic] for [Name]"
+- Just dive directly into the content"""
         
         result = call_claude_api(full_prompt, max_tokens)
         self.content[section_name] = result or self._get_fallback(section_name)
@@ -1126,16 +1133,20 @@ class OrastriaVisualBook:
             c.setFont(FONT_SYMBOL_BOLD, 14)
             c.drawCentredString(x, y - 5, ZODIAC_SYMBOLS.get(sign, '★'))
         
-        # Center info
-        c.setFont(FONT_SYMBOL_BOLD, 24)
+        # Center info - improved layout with all Big Three
+        # Sun symbol (center-left)
+        c.setFont(FONT_SYMBOL_BOLD, 22)
         c.setFillColor(GOLD)
-        c.drawCentredString(center_x, center_y + 10, '☉')
-        c.setFillColor(HexColor('#8899AA'))
-        c.drawCentredString(center_x + 15, center_y + 10, '☽')
+        c.drawCentredString(center_x - 20, center_y + 12, '☉')
         
+        # Moon symbol (center-right)
+        c.setFillColor(HexColor('#7788AA'))
+        c.drawCentredString(center_x + 20, center_y + 12, '☽')
+        
+        # Big Three text below
         c.setFillColor(NAVY)
         c.setFont(FONT_BODY, 9)
-        c.drawCentredString(center_x, center_y - 15, f"{self.sun_sign[:3]} / {self.moon_sign[:3]} / {self.rising_sign[:3]}")
+        c.drawCentredString(center_x, center_y - 12, f"{self.sun_sign[:3]} / {self.moon_sign[:3]} / {self.rising_sign[:3]}")
         
         # Planet positions table
         y_table = 2.8*inch
@@ -1381,7 +1392,12 @@ class OrastriaVisualBook:
         # Key numbers
         c.setFillColor(NAVY)
         c.setFont(FONT_HEADING_BOLD, 14)
-        c.drawString(self.margin, y, "✧ Your Numbers")
+        c.setFont(FONT_SYMBOL, 14)
+        c.setFillColor(GOLD)
+        c.drawString(self.margin, y, "✧")
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawString(self.margin + 18, y, "Your Numbers")
         y -= 25
         
         life_path = calculate_life_path(self.user.get('birth_date', '2000-01-01'))
@@ -1394,9 +1410,12 @@ class OrastriaVisualBook:
         y -= 35
         
         # Key dates preview
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL, 14)
+        c.drawString(self.margin, y, "✧")
         c.setFillColor(NAVY)
         c.setFont(FONT_HEADING_BOLD, 14)
-        c.drawString(self.margin, y, "✧ 2026 Highlights")
+        c.drawString(self.margin + 18, y, "2026 Highlights")
         y -= 25
         
         highlights = [
@@ -1408,18 +1427,39 @@ class OrastriaVisualBook:
         c.setFont(FONT_BODY, 10)
         c.setFillColor(HexColor('#444444'))
         for highlight in highlights:
-            c.drawString(self.margin + 10, y, f"→ {highlight}")
+            # Use bullet point instead of arrow
+            c.setFillColor(GOLD)
+            c.setFont(FONT_SYMBOL, 10)
+            c.drawString(self.margin + 10, y, "•")
+            c.setFillColor(HexColor('#444444'))
+            c.setFont(FONT_BODY, 10)
+            c.drawString(self.margin + 25, y, highlight)
             y -= 18
         
-        y -= 25
+        y -= 20
         
-        # Lucky elements box
-        c.setFillColor(HexColor('#f8f5f0'))
-        c.roundRect(self.margin, y - 70, self.width - 2*self.margin, 80, 8, fill=1, stroke=0)
+        # Lucky elements box - IMPROVED DESIGN
+        box_height = 95
+        box_y = y - box_height + 10
+        
+        # Outer border
+        c.setStrokeColor(GOLD)
+        c.setLineWidth(1.5)
+        c.roundRect(self.margin, box_y, self.width - 2*self.margin, box_height, 10, fill=0, stroke=1)
+        
+        # Inner fill
+        c.setFillColor(HexColor('#faf8f3'))
+        c.roundRect(self.margin + 2, box_y + 2, self.width - 2*self.margin - 4, box_height - 4, 8, fill=1, stroke=0)
+        
+        # Title with decorative elements
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL, 12)
+        c.drawCentredString(self.width/2 - 80, box_y + box_height - 18, "✦")
+        c.drawCentredString(self.width/2 + 80, box_y + box_height - 18, "✦")
         
         c.setFillColor(NAVY)
-        c.setFont(FONT_HEADING_BOLD, 12)
-        c.drawCentredString(self.width/2, y - 10, "Your Lucky Elements")
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawCentredString(self.width/2, box_y + box_height - 22, "Your Lucky Elements")
         
         element = ZODIAC_DATA.get(self.sun_sign, {}).get('element', 'Fire')
         lucky_colors = {
@@ -1435,12 +1475,25 @@ class OrastriaVisualBook:
             'Water': 'Monday, Friday'
         }
         
+        # Two columns with labels
+        col1_x = self.margin + 30
+        col2_x = self.width/2 + 30
+        row1_y = box_y + box_height - 45
+        row2_y = box_y + box_height - 65
+        
+        c.setFont(FONT_BODY_BOLD, 10)
+        c.setFillColor(NAVY)
+        c.drawString(col1_x, row1_y, "Element:")
+        c.drawString(col1_x, row2_y, "Lucky Colors:")
+        c.drawString(col2_x, row1_y, "Lucky Days:")
+        c.drawString(col2_x, row2_y, "Power Crystal:")
+        
         c.setFont(FONT_BODY, 10)
-        c.setFillColor(HexColor('#444444'))
-        c.drawString(self.margin + 20, y - 35, f"Element: {element}")
-        c.drawString(self.margin + 20, y - 52, f"Lucky Colors: {lucky_colors.get(element, 'Gold, Purple')}")
-        c.drawString(self.width/2 + 20, y - 35, f"Lucky Days: {lucky_days.get(element, 'Sunday')}")
-        c.drawString(self.width/2 + 20, y - 52, f"Power Crystal: {ZODIAC_DATA.get(self.sun_sign, {}).get('crystal', 'Clear Quartz')}")
+        c.setFillColor(HexColor('#555555'))
+        c.drawString(col1_x + 60, row1_y, element)
+        c.drawString(col1_x + 85, row2_y, lucky_colors.get(element, 'Gold, Purple'))
+        c.drawString(col2_x + 80, row1_y, lucky_days.get(element, 'Sunday'))
+        c.drawString(col2_x + 90, row2_y, ZODIAC_DATA.get(self.sun_sign, {}).get('crystal', 'Clear Quartz'))
         
         c.showPage()
     
@@ -1518,7 +1571,7 @@ class OrastriaVisualBook:
         c.roundRect(img_x - 5, img_y - 5, img_width + 10, img_height + 10, 14, fill=1, stroke=0)
         
         # Try to load and draw the promo image
-        promo_image_url = "https://f005.backblazeb2.com/file/publicorastria/replicate-prediction-9xe813f1xnrmc0ctzvvv0s1q34.png"
+        promo_image_url = "https://f005.backblazeb2.com/file/publicorastria/book-last-page-image.png"
         try:
             import tempfile
             import urllib.request
@@ -1642,10 +1695,16 @@ class OrastriaVisualBook:
         c.setFont(FONT_BODY_BOLD, 14)
         c.drawCentredString(self.width/2, cta_y + 13, "Start Your Free Trial")
         
-        # URL
+        # Add clickable hyperlink over the button area
+        c.linkURL("https://orastria.com", (self.width/2 - 112, cta_y - 2, self.width/2 + 112, cta_y + 42), relative=0)
+        
+        # URL text (also clickable)
         c.setFillColor(SOFT_GOLD)
         c.setFont(FONT_BODY, 10)
         c.drawCentredString(self.width/2, cta_y - 18, "orastria.com")
+        
+        # Add clickable link to URL text too
+        c.linkURL("https://orastria.com", (self.width/2 - 50, cta_y - 28, self.width/2 + 50, cta_y - 8), relative=0)
         
         # ---- FOOTER ----
         
