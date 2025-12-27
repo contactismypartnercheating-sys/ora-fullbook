@@ -1053,15 +1053,43 @@ class OrastriaVisualBook:
         
         return self.height - 80
     
-    def draw_chapter(self, title, subtitle=None):
-        """Draw chapter title page"""
+    def draw_chapter(self, title, subtitle=None, icon=None):
+        """Draw chapter title page with optional icon"""
         y = self.new_page()
         c = self.c
         
-        c.setFillColor(GOLD)
-        c.setFont(FONT_SYMBOL, 14)
-        c.drawCentredString(self.width/2, self.height - 180, "✧  ✦  ✧")
+        # Chapter icons mapping
+        chapter_icons = {
+            "Introduction": "✧",
+            "The Big Three": "☉ ☽ ↑",
+            "Your Inner World": "🔮",
+            "Love & Relationships": "♥",
+            "Compatibility Guide": "♡",
+            "Career & Purpose": "★",
+            "Important Dates": "📅",
+            "Your Year Ahead": "🌟",
+            "Monthly Forecasts": "📆",
+            "Numerology": "123",
+            "Tarot Guidance": "🎴",
+            "Crystals & Rituals": "💎",
+            "Your Cosmic Summary": "✦",
+            "Closing Thoughts": "∞",
+        }
         
+        # Get icon for this chapter
+        display_icon = icon or chapter_icons.get(title, "✧")
+        
+        # Large decorative icon
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL_BOLD, 48)
+        c.drawCentredString(self.width/2, self.height - 180, display_icon)
+        
+        # Decorative line
+        c.setStrokeColor(GOLD)
+        c.setLineWidth(1)
+        c.line(self.width/2 - 60, self.height - 220, self.width/2 + 60, self.height - 220)
+        
+        # Title
         c.setFillColor(NAVY)
         c.setFont(FONT_HEADING_BOLD, 32)
         c.drawCentredString(self.width/2, self.height - 280, title)
@@ -1071,6 +1099,7 @@ class OrastriaVisualBook:
             c.setFont(FONT_BODY_ITALIC, 16)
             c.drawCentredString(self.width/2, self.height - 320, subtitle)
         
+        # Bottom decorative element
         c.setFillColor(GOLD)
         c.setFont(FONT_SYMBOL, 14)
         c.drawCentredString(self.width/2, self.height - 380, "✧  ✦  ✧")
@@ -1133,20 +1162,35 @@ class OrastriaVisualBook:
             c.setFont(FONT_SYMBOL_BOLD, 14)
             c.drawCentredString(x, y - 5, ZODIAC_SYMBOLS.get(sign, '★'))
         
-        # Center info - improved layout with all Big Three
-        # Sun symbol (center-left)
-        c.setFont(FONT_SYMBOL_BOLD, 22)
+        # Center circle background
+        c.setFillColor(HexColor('#faf8f5'))
+        c.circle(center_x, center_y, 55, fill=1, stroke=0)
+        
+        # Inner decorative ring
+        c.setStrokeColor(GOLD)
+        c.setLineWidth(1)
+        c.circle(center_x, center_y, 45)
+        
+        # Sun symbol with ring
+        c.setStrokeColor(GOLD)
+        c.setLineWidth(1.5)
+        c.circle(center_x - 18, center_y + 8, 14, fill=0, stroke=1)
         c.setFillColor(GOLD)
-        c.drawCentredString(center_x - 20, center_y + 12, '☉')
+        c.setFont(FONT_SYMBOL_BOLD, 18)
+        c.drawCentredString(center_x - 18, center_y + 3, '☉')
         
-        # Moon symbol (center-right)
+        # Moon symbol with ring
+        c.setStrokeColor(HexColor('#7788AA'))
+        c.setLineWidth(1.5)
+        c.circle(center_x + 18, center_y + 8, 14, fill=0, stroke=1)
         c.setFillColor(HexColor('#7788AA'))
-        c.drawCentredString(center_x + 20, center_y + 12, '☽')
+        c.setFont(FONT_SYMBOL_BOLD, 18)
+        c.drawCentredString(center_x + 18, center_y + 3, '☽')
         
-        # Big Three text below
+        # Big Three text below symbols
         c.setFillColor(NAVY)
-        c.setFont(FONT_BODY, 9)
-        c.drawCentredString(center_x, center_y - 12, f"{self.sun_sign[:3]} / {self.moon_sign[:3]} / {self.rising_sign[:3]}")
+        c.setFont(FONT_BODY_BOLD, 9)
+        c.drawCentredString(center_x, center_y - 22, f"{self.sun_sign[:3]} / {self.moon_sign[:3]} / {self.rising_sign[:3]}")
         
         # Planet positions table
         y_table = 2.8*inch
@@ -1154,10 +1198,10 @@ class OrastriaVisualBook:
         c.setFont(FONT_HEADING_BOLD, 14)
         c.drawCentredString(self.width/2, y_table + 0.4*inch, "Your Planetary Positions")
         
-        # Draw table background
+        # Draw table background - same as page cream color
         table_width = 5*inch
         table_x = (self.width - table_width) / 2
-        c.setFillColor(HexColor('#f5f5f5'))
+        c.setFillColor(CREAM)
         c.roundRect(table_x, y_table - 1.6*inch, table_width, 1.8*inch, 5, fill=1, stroke=0)
         
         planets = [
@@ -1359,9 +1403,12 @@ class OrastriaVisualBook:
         y -= 130
         
         # Top compatible signs
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL, 14)
+        c.drawString(self.margin, y, "✧")
         c.setFillColor(NAVY)
         c.setFont(FONT_HEADING_BOLD, 14)
-        c.drawString(self.margin, y, "✧ Your Top Compatible Signs")
+        c.drawString(self.margin + 18, y, "Your Top Compatible Signs")
         y -= 25
         
         # Get top 3 compatibility scores
@@ -1436,31 +1483,9 @@ class OrastriaVisualBook:
             c.drawString(self.margin + 25, y, highlight)
             y -= 18
         
-        y -= 20
+        y -= 25
         
-        # Lucky elements box - IMPROVED DESIGN
-        box_height = 95
-        box_y = y - box_height + 10
-        
-        # Outer border
-        c.setStrokeColor(GOLD)
-        c.setLineWidth(1.5)
-        c.roundRect(self.margin, box_y, self.width - 2*self.margin, box_height, 10, fill=0, stroke=1)
-        
-        # Inner fill
-        c.setFillColor(HexColor('#faf8f3'))
-        c.roundRect(self.margin + 2, box_y + 2, self.width - 2*self.margin - 4, box_height - 4, 8, fill=1, stroke=0)
-        
-        # Title with decorative elements
-        c.setFillColor(GOLD)
-        c.setFont(FONT_SYMBOL, 12)
-        c.drawCentredString(self.width/2 - 80, box_y + box_height - 18, "✦")
-        c.drawCentredString(self.width/2 + 80, box_y + box_height - 18, "✦")
-        
-        c.setFillColor(NAVY)
-        c.setFont(FONT_HEADING_BOLD, 14)
-        c.drawCentredString(self.width/2, box_y + box_height - 22, "Your Lucky Elements")
-        
+        # Lucky elements - 4 CARD DESIGN
         element = ZODIAC_DATA.get(self.sun_sign, {}).get('element', 'Fire')
         lucky_colors = {
             'Fire': 'Red, Orange, Gold',
@@ -1474,26 +1499,62 @@ class OrastriaVisualBook:
             'Air': 'Wednesday, Thursday',
             'Water': 'Monday, Friday'
         }
+        element_icons = {
+            'Fire': '🔥',
+            'Earth': '🌍',
+            'Air': '💨',
+            'Water': '💧'
+        }
         
-        # Two columns with labels
-        col1_x = self.margin + 30
-        col2_x = self.width/2 + 30
-        row1_y = box_y + box_height - 45
-        row2_y = box_y + box_height - 65
-        
-        c.setFont(FONT_BODY_BOLD, 10)
+        # Section title
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL, 14)
+        c.drawString(self.margin, y, "✧")
         c.setFillColor(NAVY)
-        c.drawString(col1_x, row1_y, "Element:")
-        c.drawString(col1_x, row2_y, "Lucky Colors:")
-        c.drawString(col2_x, row1_y, "Lucky Days:")
-        c.drawString(col2_x, row2_y, "Power Crystal:")
+        c.setFont(FONT_HEADING_BOLD, 14)
+        c.drawString(self.margin + 18, y, "Your Lucky Elements")
+        y -= 25
         
-        c.setFont(FONT_BODY, 10)
-        c.setFillColor(HexColor('#555555'))
-        c.drawString(col1_x + 60, row1_y, element)
-        c.drawString(col1_x + 85, row2_y, lucky_colors.get(element, 'Gold, Purple'))
-        c.drawString(col2_x + 80, row1_y, lucky_days.get(element, 'Sunday'))
-        c.drawString(col2_x + 90, row2_y, ZODIAC_DATA.get(self.sun_sign, {}).get('crystal', 'Clear Quartz'))
+        # 4 cards in a row
+        card_width = (self.width - 2*self.margin - 30) / 4
+        card_height = 70
+        card_y = y - card_height
+        
+        cards = [
+            ("Element", element, ZODIAC_SYMBOLS.get(self.sun_sign, '★')),
+            ("Lucky Colors", lucky_colors.get(element, 'Gold'), "🎨"),
+            ("Lucky Days", lucky_days.get(element, 'Sunday'), "📅"),
+            ("Power Crystal", ZODIAC_DATA.get(self.sun_sign, {}).get('crystal', 'Quartz'), "💎"),
+        ]
+        
+        for i, (label, value, icon) in enumerate(cards):
+            card_x = self.margin + i * (card_width + 10)
+            
+            # Card background
+            c.setFillColor(HexColor('#f5f3ef'))
+            c.roundRect(card_x, card_y, card_width, card_height, 8, fill=1, stroke=0)
+            
+            # Card border
+            c.setStrokeColor(HexColor('#e0dcd5'))
+            c.setLineWidth(1)
+            c.roundRect(card_x, card_y, card_width, card_height, 8, fill=0, stroke=1)
+            
+            # Icon at top
+            c.setFillColor(GOLD)
+            c.setFont(FONT_SYMBOL, 16)
+            c.drawCentredString(card_x + card_width/2, card_y + card_height - 18, icon)
+            
+            # Label
+            c.setFillColor(HexColor('#888888'))
+            c.setFont(FONT_BODY, 8)
+            c.drawCentredString(card_x + card_width/2, card_y + card_height - 35, label)
+            
+            # Value
+            c.setFillColor(NAVY)
+            c.setFont(FONT_BODY_BOLD, 9)
+            # Truncate if too long
+            display_value = value if len(value) < 15 else value[:12] + "..."
+            c.drawCentredString(card_x + card_width/2, card_y + 12, display_value)
         
         c.showPage()
     
@@ -1559,16 +1620,12 @@ class OrastriaVisualBook:
         c.setFont(FONT_BODY_ITALIC, 13)
         c.drawCentredString(self.width/2, self.height - 180, "Your personalized book is just the beginning")
         
-        # ---- IMAGE ----
+        # ---- IMAGE (no holder, direct display) ----
         
-        img_y = self.height - 365
-        img_width = 4.8 * inch
-        img_height = 2.3 * inch
+        img_y = self.height - 380
+        img_width = 5.2 * inch
+        img_height = 2.5 * inch
         img_x = (self.width - img_width) / 2
-        
-        # Glow behind image
-        c.setFillColor(HexColor('#2a3055'))
-        c.roundRect(img_x - 5, img_y - 5, img_width + 10, img_height + 10, 14, fill=1, stroke=0)
         
         # Try to load and draw the promo image
         promo_image_url = "https://f005.backblazeb2.com/file/publicorastria/book-last-page-image.png"
@@ -1580,7 +1637,7 @@ class OrastriaVisualBook:
             temp_img = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
             urllib.request.urlretrieve(promo_image_url, temp_img.name)
             
-            # Draw image
+            # Draw image directly without holder
             c.drawImage(temp_img.name, img_x, img_y, width=img_width, height=img_height, 
                        preserveAspectRatio=True, mask='auto')
             
@@ -1589,19 +1646,14 @@ class OrastriaVisualBook:
             os.unlink(temp_img.name)
         except Exception as e:
             print(f"⚠️ Could not load promo image: {e}")
-            # Fallback: draw placeholder
-            c.setFillColor(HexColor('#1a1f3c'))
-            c.roundRect(img_x, img_y, img_width, img_height, 10, fill=1, stroke=0)
-            c.setStrokeColor(SOFT_GOLD)
-            c.setLineWidth(1.5)
-            c.roundRect(img_x, img_y, img_width, img_height, 10, fill=0, stroke=1)
-            c.setFillColor(HexColor('#666688'))
-            c.setFont(FONT_BODY, 10)
-            c.drawCentredString(self.width/2, img_y + img_height/2, "[ Orastria App ]")
+            # Fallback: simple text
+            c.setFillColor(SOFT_GOLD)
+            c.setFont(FONT_BODY, 11)
+            c.drawCentredString(self.width/2, img_y + img_height/2, "Visit orastria.com")
         
         # ---- FREE TRIAL BANNER ----
         
-        trial_y = img_y - 45
+        trial_y = img_y - 50
         
         c.setFillColor(TEAL)
         c.roundRect(self.width/2 - 135, trial_y - 10, 270, 34, 17, fill=1, stroke=0)
@@ -1696,7 +1748,7 @@ class OrastriaVisualBook:
         c.drawCentredString(self.width/2, cta_y + 13, "Start Your Free Trial")
         
         # Add clickable hyperlink over the button area
-        c.linkURL("https://orastria.com", (self.width/2 - 112, cta_y - 2, self.width/2 + 112, cta_y + 42), relative=0)
+        c.linkURL("https://orastria.com/?from=book", (self.width/2 - 112, cta_y - 2, self.width/2 + 112, cta_y + 42), relative=0)
         
         # URL text (also clickable)
         c.setFillColor(SOFT_GOLD)
@@ -1704,7 +1756,7 @@ class OrastriaVisualBook:
         c.drawCentredString(self.width/2, cta_y - 18, "orastria.com")
         
         # Add clickable link to URL text too
-        c.linkURL("https://orastria.com", (self.width/2 - 50, cta_y - 28, self.width/2 + 50, cta_y - 8), relative=0)
+        c.linkURL("https://orastria.com/?from=book", (self.width/2 - 50, cta_y - 28, self.width/2 + 50, cta_y - 8), relative=0)
         
         # ---- FOOTER ----
         
@@ -1840,13 +1892,85 @@ class OrastriaVisualBook:
         
         return y - 10
     
+    def draw_table_of_contents(self):
+        """Draw table of contents page"""
+        y = self.new_page()
+        c = self.c
+        
+        # Title
+        c.setFillColor(GOLD)
+        c.setFont(FONT_SYMBOL, 24)
+        c.drawCentredString(self.width/2, self.height - 80, "✧")
+        
+        c.setFillColor(NAVY)
+        c.setFont(FONT_HEADING_BOLD, 28)
+        c.drawCentredString(self.width/2, self.height - 120, "Table of Contents")
+        
+        # Decorative line
+        c.setStrokeColor(GOLD)
+        c.setLineWidth(1.5)
+        c.line(self.width/2 - 80, self.height - 140, self.width/2 + 80, self.height - 140)
+        
+        # Table of contents entries
+        toc_entries = [
+            ("Your Birth Chart", "☉"),
+            ("Introduction", "✧"),
+            ("The Big Three: Sun, Moon & Rising", "☉ ☽ ↑"),
+            ("Your Inner World", "♠"),
+            ("Love & Relationships", "♥"),
+            ("Compatibility Guide", "♡"),
+            ("Career & Purpose", "★"),
+            ("Important Dates", "◈"),
+            ("Your Year Ahead: 2026", "☆"),
+            ("Monthly Forecasts", "◇"),
+            ("Numerology", "∞"),
+            ("Tarot Guidance", "◆"),
+            ("Crystals & Rituals", "◈"),
+            ("Your Cosmic Summary", "✦"),
+            ("Closing Thoughts", "∞"),
+        ]
+        
+        y = self.height - 180
+        
+        for title, icon in toc_entries:
+            # Icon
+            c.setFillColor(GOLD)
+            c.setFont(FONT_SYMBOL, 12)
+            c.drawString(self.margin + 10, y, icon)
+            
+            # Title
+            c.setFillColor(NAVY)
+            c.setFont(FONT_BODY, 12)
+            c.drawString(self.margin + 40, y, title)
+            
+            # Dots
+            c.setFillColor(HexColor('#cccccc'))
+            dots_start = self.margin + 45 + c.stringWidth(title, FONT_BODY, 12)
+            dots_end = self.width - self.margin - 30
+            dot_x = dots_start + 10
+            while dot_x < dots_end:
+                c.drawString(dot_x, y, ".")
+                dot_x += 8
+            
+            y -= 28
+        
+        # Footer note
+        c.setFillColor(HexColor('#888888'))
+        c.setFont(FONT_BODY_ITALIC, 9)
+        c.drawCentredString(self.width/2, self.margin + 20, "Page numbers are approximate and may vary based on content length")
+        
+        c.showPage()
+    
     def build(self):
         """Build the complete book"""
         print(f"\n📖 Building PDF for {self.name}...")
         
         self.draw_cover()
         
-        # Birth Chart Wheel (NEW)
+        # Table of Contents (NEW)
+        self.draw_table_of_contents()
+        
+        # Birth Chart Wheel
         self.draw_birth_chart_wheel()
         
         # Glossary for beginners (NEW - at the start for reference)
