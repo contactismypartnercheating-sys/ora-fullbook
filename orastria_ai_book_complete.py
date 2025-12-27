@@ -170,13 +170,33 @@ AYANAMSA = 24.0
 
 def get_prokerala_token():
     """Get OAuth token from Prokerala - EXACT working version"""
+    # Debug: show credential info
+    print(f"🔑 CLIENT_ID: '{PROKERALA_CLIENT_ID[:8]}...{PROKERALA_CLIENT_ID[-4:]}' (len={len(PROKERALA_CLIENT_ID)})")
+    print(f"🔑 CLIENT_SECRET: '{PROKERALA_CLIENT_SECRET[:8]}...{PROKERALA_CLIENT_SECRET[-4:]}' (len={len(PROKERALA_CLIENT_SECRET)})")
+    
+    # Check for hidden characters
+    if '\n' in PROKERALA_CLIENT_ID or '\r' in PROKERALA_CLIENT_ID:
+        print("⚠️ CLIENT_ID contains line breaks!")
+    if '\n' in PROKERALA_CLIENT_SECRET or '\r' in PROKERALA_CLIENT_SECRET:
+        print("⚠️ CLIENT_SECRET contains line breaks!")
+    if ' ' in PROKERALA_CLIENT_ID or ' ' in PROKERALA_CLIENT_SECRET:
+        print("⚠️ Credentials contain spaces!")
+    
     url = "https://api.prokerala.com/token"
     data = {
         'grant_type': 'client_credentials',
         'client_id': PROKERALA_CLIENT_ID,
         'client_secret': PROKERALA_CLIENT_SECRET
     }
+    
+    print(f"📤 Requesting token from: {url}")
+    
     response = requests.post(url, data=data)
+    
+    print(f"📥 Response status: {response.status_code}")
+    if response.status_code != 200:
+        print(f"📥 Response body: {response.text[:500]}")
+    
     response.raise_for_status()
     return response.json()['access_token']
 
