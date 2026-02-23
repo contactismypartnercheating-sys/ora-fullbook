@@ -106,13 +106,24 @@ def generate_and_callback(user_data: dict, temp_path: str, filename: str, callba
         os.unlink(temp_path)
 
         payload = {
-            "success": True,
-            "download_url": download_url,
-            "filename": filename,
-            "user": name,
-            "email": user_data.get('email', ''),
-            "book_color": user_data.get('book_color', 'navy'),
-        }
+    "success": True,
+    "download_url": download_url,
+    "filename": filename,
+    "user": name,
+    "email": user_data.get('email', ''),
+    "book_color": user_data.get('book_color', 'navy'),
+    # Add these:
+    "first_name": user_data.get('first_name', ''),
+    "last_name": user_data.get('last_name', ''),
+    "sun_sign": user_data.get('sun_sign', ''),
+    "moon_sign": user_data.get('moon_sign', ''),
+    "rising_sign": user_data.get('rising_sign', ''),
+    "birth_date": user_data.get('birth_date', ''),
+    "gender": user_data.get('gender', ''),
+    "relationship_status": user_data.get('relationship_status', ''),
+    "variant": user_data.get('variant', ''),
+    "fbclid": user_data.get('fbclid', ''),
+}
         print(f"✅ [async] Book ready for {name} → {download_url}")
 
     except Exception as e:
