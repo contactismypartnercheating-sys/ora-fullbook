@@ -28,7 +28,7 @@ import textwrap
 # CONFIGURATION
 # ============================================================
 
-REPLICATE_URL    = os.environ.get('REPLICATE_MODEL_URL', 'https://api.replicate.com/v1/models/anthropic/claude-3.5-sonnet/predictions')
+REPLICATE_URL    = os.environ.get('REPLICATE_MODEL_URL', 'https://api.replicate.com/v1/models/anthropic/claude-3.7-sonnet/predictions')
 REPLICATE_API_KEY = os.environ.get('REPLICATE_API_KEY', '')
 
 PROKERALA_CLIENT_ID     = os.environ.get('PROKERALA_CLIENT_ID', '')
